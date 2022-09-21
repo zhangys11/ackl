@@ -1,11 +1,14 @@
-import ack
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
     linear_kernel, sigmoid_kernel, chi2_kernel, polynomial_kernel, \
     additive_chi2_kernel, laplacian_kernel
+from sklearn.preprocessing import MinMaxScaler
+from kernels import anova_kernel, rq_kernel, rq_kernel_v2, exponential_kernel, imq_kernel, \
+    cauchy_kernel, ts_kernel, spline_kernel, sorensen_kernel, min_kernel, minmax_kernel, \
+    ghi_kernel, fourier_kernel, wavelet_kernel, log_kernel, power_kernel
 
-def KernelTuning(X):
+def preview_kernels(X):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
     In binary classification, because the first and last half samples belong to two classes respectively. 
@@ -15,6 +18,8 @@ def KernelTuning(X):
     ----------
     X : an m-by-n data matrix. Should be rescaled to non-negative ranges (required by chi2 family) and re-ordered by y. 
     '''
+
+    X = MinMaxScaler().fit_transform(X)
 
     # linear_kernel返回Gram Matrix: n维欧式空间中任意k个向量之间两两的内积所组成的矩阵，称为这k个向量的格拉姆矩阵(Gram matrix)
     plt.imshow(linear_kernel(X,X)) # return the Gram matrix, i.e. X @ Y.T.
@@ -31,6 +36,11 @@ def KernelTuning(X):
         plt.title('rbf kernel (gamma = ' +str(gamma)+ '). \nK(x, y) = exp(-gamma ||x-y||^2) \ndefault gamma = 1/n.')
         plt.show()
 
+
+    plt.imshow(exponential_kernel(X,X))
+    plt.axis('off')
+    plt.title('Exponential kernel.') # laplacian = exponential
+    plt.show()
 
     for gamma in [0.5 /X.shape[1] , 1 /X.shape[1], 2 /X.shape[1], 4/X.shape[1]]:
 
@@ -75,4 +85,80 @@ def KernelTuning(X):
     plt.imshow(cosine_similarity(X,X))
     plt.axis('off')
     plt.title('cosine kernel. \nK(X, Y) = <X, Y> / (||X||*||Y||) \nNo tunable params.')
+    plt.show()
+
+    plt.imshow(anova_kernel(X,X))
+    plt.axis('off')
+    plt.title('ANOVA kernel.')
+    plt.show()
+
+    plt.imshow(rq_kernel(X,X))
+    plt.axis('off')
+    plt.title('Rational Quadratic kernel.')
+    plt.show()
+
+    plt.imshow(rq_kernel_v2(X,X))
+    plt.axis('off')
+    plt.title('Rational Quadratic kernel V2.')
+    plt.show()   
+    
+    plt.imshow(imq_kernel(X,X))
+    plt.axis('off')
+    plt.title('Inverse Multi-Quadratic kernel.')
+    plt.show()
+
+    plt.imshow(cauchy_kernel(X,X))
+    plt.axis('off')
+    plt.title('Cauchy kernel.')
+    plt.show()
+
+    plt.imshow(ts_kernel(X,X))
+    plt.axis('off')
+    plt.title('T Student kernel.')
+    plt.show()
+
+    plt.imshow(spline_kernel(X,X))
+    plt.axis('off')
+    plt.title('Spline kernel.')
+    plt.show()
+
+    plt.imshow(sorensen_kernel(X,X))
+    plt.axis('off')
+    plt.title('Sorensen kernel.')
+    plt.show()
+
+
+    plt.imshow(min_kernel(X,X))
+    plt.axis('off')
+    plt.title('Min kernel.')
+    plt.show()
+
+    plt.imshow(minmax_kernel(X,X))
+    plt.axis('off')
+    plt.title('MinMax kernel.')
+    plt.show()
+
+    plt.imshow(ghi_kernel(X,X))
+    plt.axis('off')
+    plt.title('Generalized Histogram Intersection kernel.')
+    plt.show()
+
+    plt.imshow(fourier_kernel(X,X))
+    plt.axis('off')
+    plt.title('Fourier kernel.')
+    plt.show()
+
+    plt.imshow(wavelet_kernel(X,X))
+    plt.axis('off')
+    plt.title('Wavelet kernel.')
+    plt.show()
+
+    plt.imshow(log_kernel(X,X))
+    plt.axis('off')
+    plt.title('Log kernel.')
+    plt.show()
+
+    plt.imshow(power_kernel(X,X))
+    plt.axis('off')
+    plt.title('Power kernel.')
     plt.show()
