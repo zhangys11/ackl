@@ -4,12 +4,15 @@ original authors: Wojciech Marian Czarnecki and Katarzyna Janocha
 modified by: Zhang
 """
 
+from cmath import pi
+import math
 import numpy as np
 from abc import abstractmethod, ABCMeta
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
     linear_kernel, sigmoid_kernel, chi2_kernel, polynomial_kernel, \
     additive_chi2_kernel, laplacian_kernel
 from sklearn.gaussian_process.kernels import RationalQuadratic
+from scipy import special
 
 # the candidate kernels are pre-selected by Raman domain datasets
 kernel_dict = {"linear": lambda x, y = None: linear_kernel(x, y),
@@ -73,6 +76,18 @@ def min_kernel(x,y):
 def minmax_kernel(x,y):
     return MinMax()(x,y)
 
+def expmin_kernel(x,y,a=1):
+    '''
+    exponential min kernel
+    '''
+    M = np.zeros((len(x),len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            # print(np.linalg.norm(x1-x2) , np.linalg.norm(x1+x2))
+            M[idx1,idx2] = math.exp(-a * (min(np.linalg.norm(x1-x2) , np.linalg.norm(x1+x2)) ** 2) )
+            
+    return M
+
 def ghi_kernel(x,y,alpha=1):
     '''
     Generalized Histogram Intersection kernel
@@ -94,9 +109,41 @@ def log_kernel(x,y,d=2):
 def power_kernel(x,y,d=2):
     return Power(d=d)(x,y)
 
-# def bessel_kernel(x,y):
-#     return 
+def bessel_kernel(x,y,v=0, s=1):
+    return special.jv(v+1, -s* euclidean_dist_matrix(x,y)) # / euclidean_dist_matrix(x,y)
 
+def matern_kernel(x,y,v=0.5,s=1):
+    '''
+    The matern kernel. 
+    Implemented by Zhang according to the math definition.
+
+    Parameter
+    ---------
+    v : controls smoothness. when v = 1/2, it becomes into the laplacian/exp kernel. 
+    s : controls scaling
+    '''
+    z = math.sqrt(2*v) / s * euclidean_dist_matrix(x,y)
+    return 1/(math.gamma(v) * 2**(v-1) ) * (z**v) * mod_bessel(z)
+
+def mod_bessel(x):
+    return np.sqrt (math.pi / (2*x)) * np.exp(-x)  
+
+def ess_kernel(x,y,p=1,s=1):
+    '''
+    Parameter
+    ---------
+    p : periodical parameter
+    s : scale parameter
+    '''
+    return np.exp(-2*np.sin(pi*euclidean_dist_matrix(x,y)/p)/(s**2))
+
+def feijer_kernel(x,y,k=10):
+    '''
+    Parameter
+    ---------
+    k - order of feijer series. Usually we don't use k = 1 as it always equals 1.
+    '''
+    return ( 1-np.cos(k*euclidean_dist_matrix(x,y)) ) / ( 1-np.cos(euclidean_dist_matrix(x,y)) ) / k
 
 class Kernel(object):
     """

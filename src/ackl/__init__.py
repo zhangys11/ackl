@@ -1,1 +1,2 @@
-# kernel 2d vis
+import importlib.metadata
+__version__ = importlib.metadata.version('ackl')
