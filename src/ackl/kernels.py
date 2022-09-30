@@ -1,8 +1,6 @@
-"""
-The following codes are based on https://github.com/gmum/pykernels. (MIT Licence)
-original authors: Wojciech Marian Czarnecki and Katarzyna Janocha
-modified by: Zhang
-"""
+'''
+This file contains definitions for all kernels.
+'''
 
 from cmath import pi
 import math
@@ -195,8 +193,9 @@ kernel_formulas = {"linear": r"$k(x,y)=<x,y>$",
 }
 
 
-# stores the hyper parameter search range for each kernel. 
+# Stores the hyper parameter search range for each kernel. 
 # Some hparams are dynamic (based on data dim).
+# Not all kernels have tunable hyper-parameters.
 kernel_hparams = {
     "gaussian": [0.1, 0.33, 1, 3.33],
     "laplace": [0.01,0.05,0.1],
@@ -212,7 +211,10 @@ kernel_hparams = {
 kernel_names = list(kernel_dict.keys())
 
 
-######################### The following kernel implementation are from the pyKernels project ################
+"""
+The following codes are based on https://github.com/gmum/pykernels. (MIT Licence)
+original authors: Wojciech Marian Czarnecki and Katarzyna Janocha
+"""
 
 class Kernel(object):
     """
