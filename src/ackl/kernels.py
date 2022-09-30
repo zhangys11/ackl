@@ -14,23 +14,11 @@ from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
 from sklearn.gaussian_process.kernels import RationalQuadratic
 from scipy import special
 
-# the candidate kernels are pre-selected by Raman domain datasets
-kernel_dict = {"linear": lambda x, y = None: linear_kernel(x, y),
-                    "sigmoid": lambda x, y = None: sigmoid_kernel(x, y),                    
-                    "rbf": lambda x, y = None: rbf_kernel(x, y),
-                    "laplace": lambda x, y = None: laplacian_kernel(x, y),
-                    "cosine": lambda x, y = None: cosine_similarity(x, y),                            
-                    "chi2": lambda x, y = None: chi2_kernel(x, y),
-                    "add_chi2": lambda x, y = None: additive_chi2_kernel(x, y),
-                    "poly": lambda x, y = None: polynomial_kernel(x, y),
-                    "anova": lambda x, y = None: anova_kernel(x,y),
-                    "exp": lambda x, y = None: laplacian_kernel(x,y), #alias of laplacian
-                    "rq": lambda x,y = None: rq_kernel(x,y), # rational quadratic
-                    "imq": lambda x,y = None: imq_kernel(x,y), # inverse multi quadratic
-                    }    
-
-kernel_names = list(kernel_dict.keys())
-
+def gaussian_kernel(x,y,gamma=None):
+    '''
+    Gaussian kernel. An alias of sklearn.metrics.pairwise.rbf_kernel
+    '''
+    return rbf_kernel(x,y,gamma)
 
 def exponential_kernel(x,y,gamma = None):
     '''
@@ -39,11 +27,16 @@ def exponential_kernel(x,y,gamma = None):
     return laplacian_kernel(x,y,gamma=gamma)
 
 def anova_kernel(x,y,sigma=1,d=2):
+    if sigma is None:
+        sigma = 1
+    if d is None:
+        d = 2
     return ANOVA(sigma=sigma, d=d)(x,y)
 
 def rq_kernel(x,y,l=1,a=1):
     '''
-    Using sklearn implementation.
+    The Rational Quadratic kernel. Using sklearn.gaussian_process.kernels.RationalQuadratic.
+    k(x_i, x_j) = \\left(1 + \\frac{d(x_i, x_j)^2 }{ 2\\alpha  l^2}\\right)^{-\\alpha}
 
     Paramters
     ---------
@@ -53,6 +46,9 @@ def rq_kernel(x,y,l=1,a=1):
     return RationalQuadratic(length_scale=l, alpha=a)(x,y)
 
 def rq_kernel_v2(x,y,c=1):
+    '''
+    K(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)    
+    '''
     return RationalQuadratic2(c=c)(x,y)
 
 def imq_kernel(x,y,c=1):
@@ -78,7 +74,8 @@ def minmax_kernel(x,y):
 
 def expmin_kernel(x,y,a=1):
     '''
-    exponential min kernel
+    exponential min kernel.
+    K(x,y) = exp(-a min (|x-y|,|x+y|))^2
     '''
     M = np.zeros((len(x),len(y)))
     for idx1, x1 in enumerate(x):
@@ -104,9 +101,14 @@ def wavelet_kernel(x,y):
     return Wavelet()(x,y)
 
 def log_kernel(x,y,d=2):
+    '''
+    On real data, we found the log kernel is insensative to param d. In most cases, use d's default value.
+    '''
     return Log(d = d)(x,y)
 
 def power_kernel(x,y,d=2):
+    if d is None:
+        d = 2
     return Power(d=d)(x,y)
 
 def bessel_kernel(x,y,v=0, s=1):
@@ -122,6 +124,8 @@ def matern_kernel(x,y,v=0.5,s=1):
     v : controls smoothness. when v = 1/2, it becomes into the laplacian/exp kernel. 
     s : controls scaling
     '''
+    if v is None:
+        v = 0.5
     z = math.sqrt(2*v) / s * euclidean_dist_matrix(x,y)
     return 1/(math.gamma(v) * 2**(v-1) ) * (z**v) * mod_bessel(z)
 
@@ -135,7 +139,17 @@ def ess_kernel(x,y,p=1,s=1):
     p : periodical parameter
     s : scale parameter
     '''
-    return np.exp(-2*np.sin(pi*euclidean_dist_matrix(x,y)/p)/(s**2))
+    if p is None:
+        p = 1
+    if s is None:
+        s = 1
+
+    M = np.zeros((len(x),len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            M[idx1,idx2] = math.exp(-2*math.sin(pi*np.linalg.norm(x1-x2)/p)/(s**2))
+            
+    return M
 
 def feijer_kernel(x,y,k=10):
     '''
@@ -144,6 +158,61 @@ def feijer_kernel(x,y,k=10):
     k - order of feijer series. Usually we don't use k = 1 as it always equals 1.
     '''
     return ( 1-np.cos(k*euclidean_dist_matrix(x,y)) ) / ( 1-np.cos(euclidean_dist_matrix(x,y)) ) / k
+
+
+kernel_fullnames = {"linear":"linear",
+"poly":"polynomial",
+"gaussian":"gaussian",
+"rbf":"radial basis function",
+"laplace":"laplacian",
+"cosine":"cosine similarity",
+"chi2":"chi-squared",
+"achi2":"additive chi-squared",
+# TODO
+}
+
+# kernel names and functions
+# 按照论文次序
+kernel_dict = {"linear": linear_kernel,
+                    "sigmoid": sigmoid_kernel,                    
+                    "rbf": rbf_kernel,
+                    "laplace": laplacian_kernel,
+                    "cosine": cosine_similarity,                            
+                    "chi2": chi2_kernel,
+                    "achi2": additive_chi2_kernel,
+                    "poly": polynomial_kernel,
+                    "anova": anova_kernel,
+                    "exp": laplacian_kernel, #alias of laplacian
+                    "rq": rq_kernel, # rational quadratic
+                    "imq": imq_kernel, # inverse multi quadratic
+                    "ess": ess_kernel,
+                    # TODO 补全
+}
+
+kernel_formulas = {"linear": r"$k(x,y)=<x,y>$", 
+"poly":r"$k(x,y)=$K(X, Y) = (\gamma <X, Y> + c)^d$",
+#TODO 补齐
+}
+
+
+# stores the hyper parameter search range for each kernel. 
+# Some hparams are dynamic (based on data dim).
+kernel_hparams = {
+    "gaussian": [0.1, 0.33, 1, 3.33],
+    "laplace": [0.01,0.05,0.1],
+    "chi2":  [0.001, 0.01 , 0.1 , 1.0], 
+    "anova": [0.0001, 0.001, 0.01, 0.1, 1],
+    "cauchy": [100,1000,10000],
+    "power": [0.1, 0.5, 1],
+    "matern": [0.5, 1, 10],
+    "ess": [1,2,3,4],
+    "feijer":[2,3,4,5]
+ }
+
+kernel_names = list(kernel_dict.keys())
+
+
+######################### The following kernel implementation are from the pyKernels project ################
 
 class Kernel(object):
     """
