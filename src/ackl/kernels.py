@@ -155,7 +155,18 @@ def feijer_kernel(x,y,k=10):
     ---------
     k - order of feijer series. Usually we don't use k = 1 as it always equals 1.
     '''
-    return ( 1-np.cos(k*euclidean_dist_matrix(x,y)) ) / ( 1-np.cos(euclidean_dist_matrix(x,y)) ) / k
+    if k is None:
+        k = 10
+
+    M = np.zeros((len(x),len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            if math.cos( np.linalg.norm(x1-x2) ) == 1:
+                M[idx1,idx2] = k # handle divided-by-0 error
+            else:
+                M[idx1,idx2] = ( 1-math.cos(k * np.linalg.norm(x1-x2)) ) / ( 1-math.cos( np.linalg.norm(x1-x2) ) ) / k
+    return M
+    # return ( 1-np.cos(k*euclidean_dist_matrix(x,y)) ) / ( 1-np.cos(euclidean_dist_matrix(x,y)) ) / k
 
 
 kernel_fullnames = {"linear":"linear",

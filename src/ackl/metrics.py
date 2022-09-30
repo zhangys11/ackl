@@ -452,7 +452,7 @@ def preview_kernels(X, y=None, cmap = None, optimize_hyper_params = True, scale 
 
     best_hparam = None
     best_metric = -np.inf
-    title = 'Exp-Sine-Sqaured kernel (default p = 10).\n' + \
+    title = 'Exp-Sine-Sqaured kernel (default p = 1).\n' + \
             r'$exp(-2* sin(\pi*||x-y||/p)/(s^2))$'
 
     if optimize_hyper_params:  
