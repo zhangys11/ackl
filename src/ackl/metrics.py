@@ -88,24 +88,36 @@ def binary_response_pattern(cmap = 'gray'):
     ---------
     cmap : color map scheme
     '''
-    Xns = np.array([0,1]).reshape(-1,1)
-    preview_kernels(Xns, None, cmap, False, True, False)
+    X = np.array([0,1]).reshape(-1,1)
+    preview_kernels(X, X, cmap, False, True, False)
 
-def linear_response_pattern(n=20, cmap = 'gray'):
+def linear_response_pattern(n = 10, dim = 1, cmap = 'gray'):
     '''
     Generates a response pattern of pairwise-point-distances.
     See how each kernel responds to / varies with linearly arranged points.
     
     Parameter
     ---------
-    n : use n natural points as input, i.e., 0,1,2,3,4...
+    n : sample size. 
+    dim : how many dimensions to use for the sample data
+        If dim = 1, will use n natural series, i.e., 1,2,3,4... 
+        If dim = 2, will use two 2d series, i.e., (0,1),(0,2),(0,3),(0,4)... and (1,0),(2,0),(3,0),(4,0)...
     cmap : color map scheme
     '''
-    Xns = np.array(range(n)).reshape(-1,1) # Generate a natural series, i.e., 0,1,2,3...
-    y = [0]*round(n/2) + [1]*(n-round(n/2)) # we actually don't use y in this function
-    preview_kernels(Xns, None, cmap, False, True, False)
 
-def preview_kernels(X, y=None, cmap = None, optimize_hyper_params = True, \
+    X1 = np.array(range(1,n+1)).reshape(-1,1) # Generate a column vector of natural series, i.e., 1,2,3...
+    X2 = X1.copy()
+
+    if dim == 2:
+        zeros = np.array([0] * n).reshape(-1,1)
+        X1 = np.hstack((X1, zeros))
+        X2 = np.hstack((zeros,X2))
+    
+    # X = np.vstack((X1,X2))
+    y = [0]*round(n/2) + [1]*(n-round(n/2)) # we actually don't use y in this function
+    preview_kernels(X1, X2, cmap, False, True, False)
+
+def preview_kernels(X1, X2=None, cmap = None, optimize_hyper_params = True, \
     scale = True, embed_title = True):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
@@ -115,14 +127,58 @@ def preview_kernels(X, y=None, cmap = None, optimize_hyper_params = True, \
 
     Parameters
     ----------
-    X : an m-by-n data matrix. Should be rescaled to non-negative ranges (required by chi2 family) and re-ordered by y. 
-    y : label. Only support 2 classes. If has more than 2 classes, split by ovr or ovo strategy first.
+    X1 : an m-by-n data matrix. Should be rescaled to non-negative ranges (required by chi2 family) and re-ordered by y. 
+    X2 : the second m-by-n data matrix. If None, X2 = X1.
     cmap : color map scheme to use. set None to use default, or set another scheme, e.g., 'gray', 'viridis', 'jet', 'rainbow', etc.
         For small dataset, we recommend 'gray'. For complex dataset, we recommend 'viridis'.
     optimize_hyper_params : whether to optimize hyper parameters for each kernel. 
         For real-world dataset, use True. For toy dataset, usually use False.
     scale: whether do feature scaling
     embed_title : whether embed the title in the plots. If not, will generate the title in HTML.
+    '''
+
+    if X2 is None or X2 == []:
+        X2 = X1.copy()
+
+    if scale:
+        X1 = MinMaxScaler().fit_transform(X1)
+        X2 = MinMaxScaler().fit_transform(X2)
+    
+    for i, key in enumerate(kernel_names):
+        best_hparam = None
+        best_metric = -np.inf
+        title = str(i+1) + '. ' + (kernel_fullnames[key] if key in kernel_fullnames else key) 
+
+        if optimize_hyper_params and key in kernel_hparams:        
+            for param in kernel_hparams[key]:                
+                new_metric = nmd(X1, X2, lambda x,y : kernel_dict[key](x,y, param))
+                if (new_metric > best_metric):
+                    best_metric = new_metric
+                    best_hparam = param
+            title = (kernel_fullnames[key] if key in kernel_fullnames else key) \
+                + ('(' +format(best_hparam,'.2g')+ ')') if best_hparam is not None else ''
+
+        if not optimize_hyper_params or key not in kernel_hparams:
+            plt.imshow(kernel_dict[key](X1,X2), cmap = cmap)
+        else:
+            plt.imshow(kernel_dict[key](X1,X2, best_hparam), cmap = cmap)
+
+        plt.axis('off')
+        if embed_title:
+            plt.title(title +  '\n' + kernel_formulas[key])
+        else:
+            # print(title)
+            display(HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<','&lt;').replace('>','&gt;') + '</p>'))
+        plt.show()
+
+
+def preview_kernels_on_dataset(X, y=None, cmap = None, optimize_hyper_params = True, \
+    scale = True, embed_title = True):
+    '''
+    Parameters
+    ----------
+    X : an m-by-n data matrix. Should be rescaled to non-negative ranges (required by chi2 family) and re-ordered by y. 
+    y : label. Only support 2 classes. If has more than 2 classes, split by ovr or ovo strategy first.
     '''
 
     if scale:
@@ -138,30 +194,6 @@ def preview_kernels(X, y=None, cmap = None, optimize_hyper_params = True, \
     else:
         print("Error: y must be binary labels. Exit.")
         return
-    
-    for key in kernel_names:
-        best_hparam = None
-        best_metric = -np.inf
-        title = (kernel_fullnames[key] if key in kernel_fullnames else key) 
 
-        if optimize_hyper_params and key in kernel_hparams:        
-            for param in kernel_hparams[key]:                
-                new_metric = nmd(X1, X2, lambda x,y : kernel_dict[key](x,y, param))
-                if (new_metric > best_metric):
-                    best_metric = new_metric
-                    best_hparam = param
-            title = (kernel_fullnames[key] if key in kernel_fullnames else key) \
-                + '(' +format(best_hparam,'.2g')+ ')'
-
-        if not optimize_hyper_params or key not in kernel_hparams:
-            plt.imshow(kernel_dict[key](X,X), cmap = cmap)
-        else:
-            plt.imshow(kernel_dict[key](X,X, best_hparam), cmap = cmap)
-
-        plt.axis('off')
-        if embed_title:
-            plt.title(title +  '\n' + kernel_formulas[key])
-        else:
-            # print(title)
-            display(HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<','&lt;').replace('>','&gt;') + '</p>'))
-        plt.show()
+    return preview_kernels(X1, X2, cmap, optimize_hyper_params, \
+    scale = False, embed_title = embed_title)

@@ -11,6 +11,7 @@ from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
     additive_chi2_kernel, laplacian_kernel
 from sklearn.gaussian_process.kernels import RationalQuadratic
 from scipy import special
+from sklearn.preprocessing import StandardScaler,MinMaxScaler
 
 def gaussian_kernel(x,y,gamma=None):
     '''
@@ -95,6 +96,7 @@ def fourier_kernel(x,y,q=0.1):
 def wavelet_kernel(x,y):
     '''
     The wavelet is a family / series. This is just a commonly used specific implementation.
+    Use "import pywt, pywt.wavelist()" to check a full list of wavelets.  
     '''
     return Wavelet()(x,y)
 
@@ -168,6 +170,64 @@ def feijer_kernel(x,y,k=10):
     return M
     # return ( 1-np.cos(k*euclidean_dist_matrix(x,y)) ) / ( 1-np.cos(euclidean_dist_matrix(x,y)) ) / k
 
+def circular_kernel(x,y,s=2):
+    if s is None:
+        s = 2
+
+    M = np.zeros((len(x),len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            d = np.linalg.norm(x1-x2)
+            if d < s:
+                M[idx1,idx2] = 2/math.pi*d/s* math.sqrt(1-(d/s)**2) - 2/math.pi* math.acos(-d/s)
+            else:
+                M[idx1,idx2] = 0
+    return M
+
+def spherical_kernel(x,y,s=1):
+    if s is None:
+        s = 1
+
+    M = np.zeros((len(x),len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            d = np.linalg.norm(x1-x2)
+            if d < s:
+                M[idx1,idx2] = 1 - 3/2*d/s + 1/2*(d/s)**3
+            else:
+                M[idx1,idx2] = 0
+    return M
+
+def wave_kernel(x,y,s=2):
+    if s is None:
+        s = 2
+
+    M = np.zeros((len(x),len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            d = np.linalg.norm(x1-x2)
+            if d < s:
+                M[idx1,idx2] = s/d * math.sin(d/s)
+            else:
+                M[idx1,idx2] = 0
+    return M
+
+def cosine_kernel(x,y):
+    '''
+    This is a self-implemented version, which uses a different 
+    normalization from sklearn.metrics.pairwise.cosine_similarity().
+    '''
+    # return cosine_similarity(x,y)
+
+    scaler = MinMaxScaler((1,100))
+    x = scaler.fit_transform(x)
+    y = scaler.fit_transform(y)
+
+    M = np.zeros((len(x),len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            M[idx1,idx2] = np.dot(x1,x2) / np.linalg.norm(x1) / np.linalg.norm(x2)
+    return M
 
 kernel_fullnames = {
 "poly":"polynomial",
@@ -179,7 +239,7 @@ kernel_fullnames = {
 "exp":"exponential",
 "ess":"exponential sine squared",
 "rq":"rational quadratic",
-"imp":"inverse multi quadric",
+"imq":"inverse multi quadric",
 "ts":"T-Student",
 "anova":"ANOVA",
 "minman":"min-max",
@@ -198,6 +258,7 @@ kernel_dict = {"linear": linear_kernel,
                     "chi2": chi2_kernel,
                     "achi2": additive_chi2_kernel,
                     "cosine": cosine_similarity,
+                    "wave": wave_kernel,
                     "ess": ess_kernel,
                     "rq": rq_kernel,  # rational quadratic
                     "imq": imq_kernel,  # inverse multi quadratic
@@ -208,10 +269,12 @@ kernel_dict = {"linear": linear_kernel,
                     "minmax":minmax_kernel,
                     "expmin":expmin_kernel,
                     "ghi":ghi_kernel,
-                    "spine":spline_kernel,
+                    "spline":spline_kernel,
                     "sorensen":sorensen_kernel,
                     "fourier":fourier_kernel,
                     "wavelet":wavelet_kernel,
+                    "circular":circular_kernel,
+                    "spherical":spherical_kernel,
                     "log":log_kernel,
                     "power":power_kernel,
                     "bessel":bessel_kernel,
@@ -226,6 +289,7 @@ kernel_formulas = {
     "exp":r"$k(x, y)=exp(-||x - y||/(2s^2))$",
     "laplace":r"$k(x, y) = exp(-||x - y||/s)$",
     "cosine": r"$k(x, y) = <x,y>/(||x|| ||y||)$",
+    "wave": r"$k(x, y) = \frac{\sigma}{\lVert x-y \rVert } \sin \frac{\lVert x-y \rVert }{\sigma}$",
     "matern":r"$k(x, y) = (||x-y||^v \sqrt{2v} / s) * Bessel(||x-y||^v \sqrt{2v} / s) /(\Gamma(v) 2^{v-1} ) $",
     "rq":r"$k(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)$",
     "imq":r"$k(x, y) = 1 / \sqrt{||x-y||^2 + c^2}$",
@@ -234,6 +298,8 @@ kernel_formulas = {
     "anova":r"$k(x, y) = \sum_k exp( -sigma * (x_k - y_k)^2 )^d$",
     "wavelet":r"$k(x, y) = \prod_i { h( (x_i-c)/a ) h( (y_i-c)/a ) }$",
     "fourier":r"$k(x, y) = \prod_i { (1-q^2)/(2(1-2q cos(x_i-y_i)+q^2)) }$",
+    "circular":r"$k(x, y) = \frac{2}{\pi} \frac{ \lVert x-y \rVert}{\sigma} \sqrt{1 - {\left( \frac{ \lVert x-y \rVert}{\sigma} \right)}^2 } - \frac{2}{\pi} \arccos ( - \frac{ \lVert x-y \rVert}{\sigma}) , if \lVert x-y \rVert < \sigma$ , 0 otherwise.",
+    "spherical": r"$k(x, y) = 1 - \frac{3}{2} \frac{\lVert x-y \rVert}{\sigma} + \frac{1}{2} \left( \frac{ \lVert x-y \rVert}{\sigma} \right)^3  \mbox{if}~ \lVert x-y \rVert < \sigma \mbox{, 0 otherwise} $",
     "Tanimoto":r"$k(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)$",
     "sorensen":r"$k(x, y) = 2 <x, y> / (||x||^2 + ||y||^2)$",
     "achi2":r"$k(x, y) = \sum_i 2 x_i y_i / (x_i + y_i)$",
@@ -242,12 +308,12 @@ kernel_formulas = {
     "ghi":r"$k(x, y) = \sum_i min(|x_i|^\alpha, |y_i|^\alpha)$",
     "minmax":r"$k(x, y) = \sum_i min(x_i, y_i) / \sum_i max(x_i, y_i)$",
     "expmin":r"$K(x,y) = exp(-a*min (|x-y|,|x+y|))^2$",
-    "spine":r"$k(x, y) = \prod_i { 1 + x_iy_i + x_iy_i min(x_i,y_i)- (x_i+y_i)/2 * min(x_i,y_i)^2+ 1/3 * min(x_i, y_i)^3 }$",
+    "spline":r"$k(x, y) = \prod_i { 1 + x_iy_i + x_iy_i min(x_i,y_i)- (x_i+y_i)/2 * min(x_i,y_i)^2+ 1/3 * min(x_i, y_i)^3 }$",
     "log":r"$k(x, y) = -log(||x-y||^d + 1)$",
     "power":r"$k(x, y) = -||x-y||^d$",
-    "bessel":r"$JV_{v+1} ( -s ||x-y|| )$",
-    "ess":r"$k(x,y)=exp(-2* sin(\pi*||x-y||/p)/(s^2))$",
-    "fejer":r"$( 1-cos(k ||x-y||) ) / ( 1-cos(||x-y||) / k$"
+    "bessel":r"$k(x, y) = JV_{v+1} ( -s ||x-y|| )$",
+    "ess":r"$k(x,y) = exp(-2* sin(\pi*||x-y||/p)/(s^2))$",
+    "fejer":r"k(x, y) = $( 1-cos(k ||x-y||) ) / ( 1-cos(||x-y||) / k$"
 }
 
 
@@ -263,7 +329,10 @@ kernel_hparams = {
     "power": [0.1, 0.5, 1],
     "matern": [0.5, 1, 10],
     "ess": [1,2,3,4],
-    "feijer":[2,3,4,5]
+    "feijer":[2,3,4,5],
+    "circular": [2,4,8],
+    "spherical": [1,2,4,8],
+    "wave": [2,4],
  }
 
 kernel_names = list(kernel_dict.keys())
