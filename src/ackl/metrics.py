@@ -151,7 +151,7 @@ def preview_kernels(X, y=None, cmap = None, optimize_hyper_params = True, \
                     best_metric = new_metric
                     best_hparam = param
             title = (kernel_fullnames[key] if key in kernel_fullnames else key) \
-                + '(' +format(best_hparam,'.2g')+ ').'
+                + '(' +format(best_hparam,'.2g')+ ')'
 
         if not optimize_hyper_params or key not in kernel_hparams:
             plt.imshow(kernel_dict[key](X,X), cmap = cmap)
