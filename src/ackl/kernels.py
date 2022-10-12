@@ -177,30 +177,90 @@ kernel_fullnames = {"linear":"linear",
 "cosine":"cosine similarity",
 "chi2":"chi-squared",
 "achi2":"additive chi-squared",
-# TODO
+"exp":"exponential",
+"matern":"matern",
+"ess":"exponential-Sine-Squared",
+"rq":"rational quadratic",
+"imp":"inverse Multi Quadric",
+"cauchy":"cauchy",
+"ts":"T-Student",
+"anova":"anova",
+"min":"min",
+"minman":"minmax",
+"expmin":"exponential-Min",
+"ghi":"generalized histogram intersection",
+"spline":"spline",
+"sorensen":"sorense",
+"fourier":"fourier",
+"wavelet":"wavelet",
+"log":"log",
+"power":"power",
+"bessel":"bessel",
+"fejer":"fejer"
 }
 
 # kernel names and functions
 # 按照论文次序
 kernel_dict = {"linear": linear_kernel,
+                    "poly": polynomial_kernel,
                     "sigmoid": sigmoid_kernel,                    
                     "rbf": rbf_kernel,
+                    "gaussian":gaussian_kernel,
+                    "exp": laplacian_kernel, #alias of laplacian
                     "laplace": laplacian_kernel,
-                    "cosine": cosine_similarity,                            
+                    "matern":matern_kernel,
                     "chi2": chi2_kernel,
                     "achi2": additive_chi2_kernel,
-                    "poly": polynomial_kernel,
-                    "anova": anova_kernel,
-                    "exp": laplacian_kernel, #alias of laplacian
-                    "rq": rq_kernel, # rational quadratic
-                    "imq": imq_kernel, # inverse multi quadratic
+                    "cosine": cosine_similarity,
                     "ess": ess_kernel,
-                    # TODO 补全
+                    "rq": rq_kernel,  # rational quadratic
+                    "imq": imq_kernel,  # inverse multi quadratic
+                    "cauchy":cauchy_kernel,
+                    "ts":ts_kernel,
+                    "anova": anova_kernel,
+                    "min":min_kernel,
+                    "minmax":minmax_kernel,
+                    "expmin":expmin_kernel,
+                    "ghi":ghi_kernel,
+                    "spine":spline_kernel,
+                    "sorensen":sorensen_kernel,
+                    "fourier":fourier_kernel,
+                    "wavelet":wavelet_kernel,
+                    "log":log_kernel,
+                    "power":power_kernel,
+                    "bessel":bessel_kernel,
+                    "fejer":feijer_kernel
+}
 }
 
 kernel_formulas = {"linear": r"$k(x,y)=<x,y>$", 
 "poly":r"$k(x,y)=$K(X, Y) = (\gamma <X, Y> + c)^d$",
-#TODO 补齐
+"gaussian": r"$K(x, y) = exp(-\gamma ||x-y||^2)$",
+"sigmoid":r"$K(X, Y) = tanh(\gamma <X, Y> + c)$",
+"exp":r"$K(x, y)=$e^(-||x - y||/(2*s^2))$",
+"laplace":r"$K(x, y) = e^(-||x - y||/s)$",
+"rq":r"$K(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)$",
+"imq":r"$K(x, y) = 1 / sqrt(||x-y||^2 + c^2)$",
+"cauchy":r"$K(x, y) = 1 / (1 + ||x - y||^2 / s ^ 2)$",
+"ts":r"$K(x, y) = 1 / (1 + ||x - y||^d)$",
+"anova":r"$K(x, y) = SUM_k exp( -sigma * (x_k - y_k)^2 )^d$",
+"wavelet":r"$K(x, y) = PROD_i h( (x_i-c)/a ) h( (y_i-c)/a )$",
+"fourier":r"$K(x, y) = PROD_i (1-q^2)/(2(1-2q cos(x_i-y_i)+q^2))$",
+"Tanimoto":r"$K(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)$",
+"sorensen":r"$K(x, y) = 2 <x, y> / (||x||^2 + ||y||^2)$",
+"achi2":r"$K(x, y) = SUM_i 2 x_i y_i / (x_i + y_i)$",
+"chi2":r"$K(x, y) = exp( -gamma * SUM_i (x_i - y_i)^2 / (x_i + y_i) )$",
+"min":r"$K(x, y) = SUM_i min(x_i, y_i)$",
+"ghi":r"$K(x, y) = SUM_i min(|x_i|^alpha, |y_i|^alpha)$",
+"minmax":r"$K(x, y) = SUM_i min(x_i, y_i) / SUM_i max(x_i, y_i)$",
+"expmin":r"$K(x,y) = exp(-a min (|x-y|,|x+y|))^2$",
+"spine":r"$K(x, y) = PROD_i 1 + x_iy_i + x_iy_i min(x_i,y_i)- (x_i+y_i)/2 * min(x_i,y_i)^2+ 1/3 * min(x_i, y_i)^3$",
+"log":r"$K(x, y) = -log(||x-y||^d + 1)$",
+"power":r"$K(x, y) = -||x-y||^d$",
+"bessel":r"$JV_{v+1} ( -s* ||x-y|| )$",
+"ess":r"$k(x,y)=exp(-2* sin(\pi*||x-y||/p)/(s^2))$",
+"fejer":r"$( 1-cos(k*||x-y||) ) / ( 1-cos(||x-y||) / k$"
+
 }
 
 
