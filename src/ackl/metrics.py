@@ -135,7 +135,7 @@ def preview_kernels(X, y=None, cmap = None, optimize_hyper_params = True, scale 
         return
 
     # TODO: replace with this 
-    '''
+    
     for key in kernel_names:
         best_hparam = None
         best_metric = -np.inf
@@ -157,7 +157,7 @@ def preview_kernels(X, y=None, cmap = None, optimize_hyper_params = True, scale 
         plt.show()
 
     return
-    '''
+    
     
 
     ############# Linear kernel ############
