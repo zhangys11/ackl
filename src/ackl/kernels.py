@@ -45,7 +45,7 @@ def rq_kernel(x,y,l=1,a=1):
 
 def rq_kernel_v2(x,y,c=1):
     '''
-    K(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)    
+    k(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)    
     '''
     return RationalQuadratic2(c=c)(x,y)
 
@@ -115,7 +115,7 @@ def bessel_kernel(x,y,v=0, s=1):
 def matern_kernel(x,y,v=0.5,s=1):
     '''
     The matern kernel. 
-    Implemented by Zhang according to the math definition.
+    Implemented according to the math definition.
 
     Parameter
     ---------
@@ -169,43 +169,29 @@ def feijer_kernel(x,y,k=10):
     # return ( 1-np.cos(k*euclidean_dist_matrix(x,y)) ) / ( 1-np.cos(euclidean_dist_matrix(x,y)) ) / k
 
 
-kernel_fullnames = {"linear":"linear",
+kernel_fullnames = {
 "poly":"polynomial",
-"gaussian":"gaussian",
 "rbf":"radial basis function",
 "laplace":"laplacian",
 "cosine":"cosine similarity",
 "chi2":"chi-squared",
 "achi2":"additive chi-squared",
 "exp":"exponential",
-"matern":"matern",
-"ess":"exponential-Sine-Squared",
+"ess":"exponential sine squared",
 "rq":"rational quadratic",
-"imp":"inverse Multi Quadric",
-"cauchy":"cauchy",
+"imp":"inverse multi quadric",
 "ts":"T-Student",
-"anova":"anova",
-"min":"min",
-"minman":"minmax",
-"expmin":"exponential-Min",
+"anova":"ANOVA",
+"minman":"min-max",
+"expmin":"exponential-min",
 "ghi":"generalized histogram intersection",
-"spline":"spline",
-"sorensen":"sorense",
-"fourier":"fourier",
-"wavelet":"wavelet",
-"log":"log",
-"power":"power",
-"bessel":"bessel",
-"fejer":"fejer"
 }
 
 # kernel names and functions
-# 按照论文次序
 kernel_dict = {"linear": linear_kernel,
                     "poly": polynomial_kernel,
-                    "sigmoid": sigmoid_kernel,                    
-                    "rbf": rbf_kernel,
-                    "gaussian":gaussian_kernel,
+                    "sigmoid": sigmoid_kernel,
+                    "gaussian":gaussian_kernel, # alias of "rbf": rbf_kernel,
                     "exp": laplacian_kernel, #alias of laplacian
                     "laplace": laplacian_kernel,
                     "matern":matern_kernel,
@@ -231,36 +217,37 @@ kernel_dict = {"linear": linear_kernel,
                     "bessel":bessel_kernel,
                     "fejer":feijer_kernel
 }
-}
 
-kernel_formulas = {"linear": r"$k(x,y)=<x,y>$", 
-"poly":r"$k(x,y)=$K(X, Y) = (\gamma <X, Y> + c)^d$",
-"gaussian": r"$K(x, y) = exp(-\gamma ||x-y||^2)$",
-"sigmoid":r"$K(X, Y) = tanh(\gamma <X, Y> + c)$",
-"exp":r"$K(x, y)=$e^(-||x - y||/(2*s^2))$",
-"laplace":r"$K(x, y) = e^(-||x - y||/s)$",
-"rq":r"$K(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)$",
-"imq":r"$K(x, y) = 1 / sqrt(||x-y||^2 + c^2)$",
-"cauchy":r"$K(x, y) = 1 / (1 + ||x - y||^2 / s ^ 2)$",
-"ts":r"$K(x, y) = 1 / (1 + ||x - y||^d)$",
-"anova":r"$K(x, y) = SUM_k exp( -sigma * (x_k - y_k)^2 )^d$",
-"wavelet":r"$K(x, y) = PROD_i h( (x_i-c)/a ) h( (y_i-c)/a )$",
-"fourier":r"$K(x, y) = PROD_i (1-q^2)/(2(1-2q cos(x_i-y_i)+q^2))$",
-"Tanimoto":r"$K(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)$",
-"sorensen":r"$K(x, y) = 2 <x, y> / (||x||^2 + ||y||^2)$",
-"achi2":r"$K(x, y) = SUM_i 2 x_i y_i / (x_i + y_i)$",
-"chi2":r"$K(x, y) = exp( -gamma * SUM_i (x_i - y_i)^2 / (x_i + y_i) )$",
-"min":r"$K(x, y) = SUM_i min(x_i, y_i)$",
-"ghi":r"$K(x, y) = SUM_i min(|x_i|^alpha, |y_i|^alpha)$",
-"minmax":r"$K(x, y) = SUM_i min(x_i, y_i) / SUM_i max(x_i, y_i)$",
-"expmin":r"$K(x,y) = exp(-a min (|x-y|,|x+y|))^2$",
-"spine":r"$K(x, y) = PROD_i 1 + x_iy_i + x_iy_i min(x_i,y_i)- (x_i+y_i)/2 * min(x_i,y_i)^2+ 1/3 * min(x_i, y_i)^3$",
-"log":r"$K(x, y) = -log(||x-y||^d + 1)$",
-"power":r"$K(x, y) = -||x-y||^d$",
-"bessel":r"$JV_{v+1} ( -s* ||x-y|| )$",
-"ess":r"$k(x,y)=exp(-2* sin(\pi*||x-y||/p)/(s^2))$",
-"fejer":r"$( 1-cos(k*||x-y||) ) / ( 1-cos(||x-y||) / k$"
-
+kernel_formulas = {
+    "linear": r"$k(x,y) = <x,y> $", # + "\nlinear_kernel返回Gram Matrix: n维欧式空间中任意k个向量之间两两的内积所组成的矩阵，称为这k个向量的格拉姆矩阵(Gram matrix)", 
+    "poly": r"$k(x,y)=(\gamma <x, y> + c)^d$",
+    "gaussian": r"$k(x, y) = exp(-\gamma ||x-y||^2)$",
+    "sigmoid":r"$k(x, y) = tanh(\gamma <x, y> + c)$",
+    "exp":r"$k(x, y)=exp(-||x - y||/(2s^2))$",
+    "laplace":r"$k(x, y) = exp(-||x - y||/s)$",
+    "cosine": r"$k(x, y) = <x,y>/(||x|| ||y||)$",
+    "matern":r"$k(x, y) = (||x-y||^v \sqrt{2v} / s) * Bessel(||x-y||^v \sqrt{2v} / s) /(\Gamma(v) 2^{v-1} ) $",
+    "rq":r"$k(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)$",
+    "imq":r"$k(x, y) = 1 / \sqrt{||x-y||^2 + c^2}$",
+    "cauchy":r"$k(x, y) = 1 / (1 + ||x - y||^2 / s^2)$",
+    "ts":r"$k(x, y) = 1 / (1 + ||x - y||^d)$",
+    "anova":r"$k(x, y) = \sum_k exp( -sigma * (x_k - y_k)^2 )^d$",
+    "wavelet":r"$k(x, y) = \prod_i { h( (x_i-c)/a ) h( (y_i-c)/a ) }$",
+    "fourier":r"$k(x, y) = \prod_i { (1-q^2)/(2(1-2q cos(x_i-y_i)+q^2)) }$",
+    "Tanimoto":r"$k(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)$",
+    "sorensen":r"$k(x, y) = 2 <x, y> / (||x||^2 + ||y||^2)$",
+    "achi2":r"$k(x, y) = \sum_i 2 x_i y_i / (x_i + y_i)$",
+    "chi2":r"$k(x, y) = exp( - \gamma * \sum_i (x_i - y_i)^2 / (x_i + y_i) )$",
+    "min":r"$k(x, y) = \sum_i min(x_i, y_i)$",
+    "ghi":r"$k(x, y) = \sum_i min(|x_i|^\alpha, |y_i|^\alpha)$",
+    "minmax":r"$k(x, y) = \sum_i min(x_i, y_i) / \sum_i max(x_i, y_i)$",
+    "expmin":r"$K(x,y) = exp(-a*min (|x-y|,|x+y|))^2$",
+    "spine":r"$k(x, y) = \prod_i { 1 + x_iy_i + x_iy_i min(x_i,y_i)- (x_i+y_i)/2 * min(x_i,y_i)^2+ 1/3 * min(x_i, y_i)^3 }$",
+    "log":r"$k(x, y) = -log(||x-y||^d + 1)$",
+    "power":r"$k(x, y) = -||x-y||^d$",
+    "bessel":r"$JV_{v+1} ( -s ||x-y|| )$",
+    "ess":r"$k(x,y)=exp(-2* sin(\pi*||x-y||/p)/(s^2))$",
+    "fejer":r"$( 1-cos(k ||x-y||) ) / ( 1-cos(||x-y||) / k$"
 }
 
 
@@ -454,7 +441,7 @@ class Exponential(Kernel):
     
     #Exponential kernel, 
 
-    #    K(x, y) = e^(-||x - y||/(2*s^2))
+    #    k(x, y) = e^(-||x - y||/(2*s^2))
 
     #where:
     #    s = sigma
@@ -482,7 +469,7 @@ class Laplacian(Exponential):
     
     #Laplacian kernel, 
 
-    #    K(x, y) = e^(-||x - y||/s)
+    #    k(x, y) = e^(-||x - y||/s)
 
     #where:
     #    s = sigma
@@ -495,7 +482,7 @@ class RationalQuadratic2(Kernel):
     """
     Rational quadratic kernel, V2. This implementation is differnt from sklearn. By default, we use sklearn.
 
-        K(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)
+        k(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)
 
     where:
         c > 0
@@ -517,7 +504,7 @@ class InverseMultiquadratic(Kernel):
     """
     Inverse multiquadratic kernel, 
 
-        K(x, y) = 1 / sqrt(||x-y||^2 + c^2)
+        k(x, y) = 1 / sqrt(||x-y||^2 + c^2)
 
     where:
         c > 0
@@ -544,7 +531,7 @@ class Cauchy(Kernel):
     """
     Cauchy kernel, 
 
-        K(x, y) = 1 / (1 + ||x - y||^2 / s ^ 2)
+        k(x, y) = 1 / (1 + ||x - y||^2 / s ^ 2)
 
     where:
         s = sigma
@@ -579,7 +566,7 @@ class TStudent(Kernel):
     """
     T-Student kernel, 
 
-        K(x, y) = 1 / (1 + ||x - y||^d)
+        k(x, y) = 1 / (1 + ||x - y||^d)
 
     where:
         d = degree
@@ -606,7 +593,7 @@ class TStudent(Kernel):
 class ANOVA(Kernel):
     """
     ANOVA kernel, 
-        K(x, y) = SUM_k exp( -sigma * (x_k - y_k)^2 )^d
+        k(x, y) = SUM_k exp( -sigma * (x_k - y_k)^2 )^d
 
     as defined in
 
@@ -642,11 +629,11 @@ class Wavelet(Kernel):
     """
     Wavelet kernel,
 
-        K(x, y) = PROD_i h( (x_i-c)/a ) h( (y_i-c)/a )
+        k(x, y) = PROD_i h( (x_i-c)/a ) h( (y_i-c)/a )
 
     or for c = None
 
-        K(x, y) = PROD_i h( (x_i - y_i)/a )
+        k(x, y) = PROD_i h( (x_i - y_i)/a )
 
     as defined in
     "Wavelet Support Vector Machine"
@@ -681,7 +668,7 @@ class Fourier(Kernel):
     """
     Fourier kernel,
 
-        K(x, y) = PROD_i (1-q^2)/(2(1-2q cos(x_i-y_i)+q^2))
+        k(x, y) = PROD_i (1-q^2)/(2(1-2q cos(x_i-y_i)+q^2))
     """
 
     def __init__(self, q=0.1):
@@ -705,7 +692,7 @@ class Fourier(Kernel):
 class Tanimoto(Kernel):
     """
     Tanimoto kernel
-        K(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)
+        k(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)
 
     as defined in:
 
@@ -728,7 +715,7 @@ class Tanimoto(Kernel):
 class Sorensen(Kernel):
     """
     Sorensen kernel
-        K(x, y) = 2 <x, y> / (||x||^2 + ||y||^2)
+        k(x, y) = 2 <x, y> / (||x||^2 + ||y||^2)
 
     as defined in:
 
@@ -758,7 +745,7 @@ class PositiveKernel(Kernel):
 class AdditiveChi2(PositiveKernel):
     """
     Additive Chi^2 kernel, 
-        K(x, y) = SUM_i 2 x_i y_i / (x_i + y_i)
+        k(x, y) = SUM_i 2 x_i y_i / (x_i + y_i)
 
     as defined in
 
@@ -788,7 +775,7 @@ class AdditiveChi2(PositiveKernel):
 class Chi2(PositiveKernel):
     """
     Chi^2 kernel, 
-        K(x, y) = exp( -gamma * SUM_i (x_i - y_i)^2 / (x_i + y_i) )
+        k(x, y) = exp( -gamma * SUM_i (x_i - y_i)^2 / (x_i + y_i) )
 
     as defined in:
 
@@ -822,7 +809,7 @@ class Chi2(PositiveKernel):
 class Min(PositiveKernel):
     """
     Min kernel (also known as Histogram intersection kernel)
-        K(x, y) = SUM_i min(x_i, y_i)
+        k(x, y) = SUM_i min(x_i, y_i)
 
     """
 
@@ -847,7 +834,7 @@ class Min(PositiveKernel):
 class GeneralizedHistogramIntersection(Kernel):
     """
     Generalized histogram intersection kernel
-        K(x, y) = SUM_i min(|x_i|^alpha, |y_i|^alpha)
+        k(x, y) = SUM_i min(|x_i|^alpha, |y_i|^alpha)
 
     as defined in
     "Generalized histogram intersection kernel for image recognition"
@@ -870,7 +857,7 @@ class GeneralizedHistogramIntersection(Kernel):
 class MinMax(PositiveKernel):
     """
     MinMax kernel
-        K(x, y) = SUM_i min(x_i, y_i) / SUM_i max(x_i, y_i)
+        k(x, y) = SUM_i min(x_i, y_i) / SUM_i max(x_i, y_i)
 
     bounded by [0,1] as defined in:
 
@@ -903,7 +890,7 @@ class MinMax(PositiveKernel):
 class Spline(PositiveKernel):
     """
     Spline kernel, 
-        K(x, y) = PROD_i 1 + x_iy_i + x_iy_i min(x_i,y_i)
+        k(x, y) = PROD_i 1 + x_iy_i + x_iy_i min(x_i,y_i)
                            - (x_i+y_i)/2 * min(x_i,y_i)^2
                            + 1/3 * min(x_i, y_i)^3
 
@@ -947,7 +934,7 @@ class ConditionalyPositiveDefiniteKernel(Kernel):
 class Log(ConditionalyPositiveDefiniteKernel):
     """
     Log kernel
-        K(x, y) = -log(||x-y||^d + 1)
+        k(x, y) = -log(||x-y||^d + 1)
 
     """
 
@@ -964,7 +951,7 @@ class Log(ConditionalyPositiveDefiniteKernel):
 class Power(ConditionalyPositiveDefiniteKernel):
     """
     Power kernel
-        K(x, y) = -||x-y||^d
+        k(x, y) = -||x-y||^d
 
     as defined in:
     "Scale-Invariance of Support Vector Machines based on the Triangular Kernel"
