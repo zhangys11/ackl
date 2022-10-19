@@ -285,7 +285,7 @@ kernel_formulas = {
     "linear": r"$k(x,y) = <x,y> $", # + "\nlinear_kernel返回Gram Matrix: n维欧式空间中任意k个向量之间两两的内积所组成的矩阵，称为这k个向量的格拉姆矩阵(Gram matrix)", 
     "poly": r"$k(x,y)=(\gamma <x, y> + c)^d$",
     "gaussian": r"$k(x, y) = exp(-\gamma ||x-y||^2)$",
-    "sigmoid":r"$k(x, y) = tanh(\gamma <x, y> + c)$",
+    "sigmoid":r"$k(x, y) = tanh(\gamma <x, y> + c)$", 
     "exp":r"$k(x, y)=exp(-||x - y||/(2s^2))$",
     "laplace":r"$k(x, y) = exp(-||x - y||/s)$",
     "cosine": r"$k(x, y) = <x,y>/(||x|| ||y||)$",
@@ -321,19 +321,25 @@ kernel_formulas = {
 # Some hparams are dynamic (based on data dim).
 # Not all kernels have tunable hyper-parameters.
 kernel_hparams = {
+    "poly": [1, 2, 3], # when d = 1, becomes a linear kernel
     "gaussian": [0.1, 0.33, 1, 3.33],
+    "sigmoid": [0.1, 1, 10],
     "laplace": [0.01,0.05,0.1],
-    "chi2":  [0.001, 0.01 , 0.1 , 1.0], 
-    "anova": [0.0001, 0.001, 0.01, 0.1, 1],
-    "cauchy": [100,1000,10000],
-    "power": [0.1, 0.5, 1],
-    "matern": [0.5, 1, 10],
-    "ess": [1,2,3,4],
+    "exp": [0.1, 1, 10],
+    "chi2":  [0.0001, 0.001, 0.01 , 0.1 , 1.0], 
+    "anova": [0.00001, 0.0001, 0.001, 0.01, 0.1, 1],
+    "cauchy": [1, 10, 100,1000,10000],
+    "power": [.01, .1, .5, 1],
+    "matern": [0.1, 0.5, 1, 10],
+    "ess": [0.5, 1, 2, 4],
     "feijer":[2,3,4,5],
-    "circular": [2,4,8],
-    "spherical": [1,2,4,8],
+    "circular": [0.5,1,2,4,8],
+    "spherical": [.1, .5, 1,2,4,8],
     "wave": [2,4],
  }
+
+kernel_hparas_divide_n = ['gaussian', 'sigmoid', 'laplace'] 
+# these kernels' hparam should be divided by n
 
 kernel_names = list(kernel_dict.keys())
 

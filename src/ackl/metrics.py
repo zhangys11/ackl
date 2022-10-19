@@ -2,36 +2,63 @@ from cmath import inf, nan
 import math
 import numpy as np
 import numpy.testing as npt 
+from sklearn.linear_model import LogisticRegressionCV
 import matplotlib.pyplot as plt
-from IPython.core.display import HTML, display
+from IPython.display import HTML, display
 
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
     linear_kernel, sigmoid_kernel, chi2_kernel, polynomial_kernel, \
     additive_chi2_kernel, laplacian_kernel
 from sklearn.preprocessing import MinMaxScaler
+from ackl.kernels import cosine_kernel
 from kernels import anova_kernel, rq_kernel, rq_kernel_v2, exponential_kernel, imq_kernel, \
     cauchy_kernel, ts_kernel, spline_kernel, sorensen_kernel, min_kernel, minmax_kernel, \
     ghi_kernel, fourier_kernel, wavelet_kernel, log_kernel, power_kernel, matern_kernel, \
     ess_kernel, expmin_kernel, bessel_kernel, feijer_kernel, gaussian_kernel
-from kernels import kernel_names, kernel_hparams, kernel_formulas, kernel_fullnames,kernel_dict
+from kernels import kernel_names, kernel_hparams, kernel_formulas, \
+    kernel_fullnames,kernel_dict,kernel_hparas_divide_n
 
-def nmd(X1, X2, f, display=False):
+def acc(X, y, f, display=False):
+    '''
+    Use classification accuracy as a metric for kernel performance
+
+    Parameters
+    ----------
+    X : expect an already-scaled data matrix
+    y : target labels. support bianary classification.
+    f : a kernelfunciton. Can use lambda to pass concrete kernel-specific parameters, e.g., 
+        lambda x, y: laplacian_kernel(x, y, 2.0/N)
+        lambda x, y: laplacian_kernel(x, y, 4.0/N)
+    '''
+    XK = f(X, X) # convert mxn matrix to mxm matrix in the kernel space
+    XK = np.nan_to_num(XK, copy=False, nan=0)  # replace NaN with 0
+
+    try:
+        clf = LogisticRegressionCV().fit(XK, y)
+        return clf.score(XK, y)
+    except:
+        return np.NaN
+
+def nmd(X, y, f, display=False):
     '''
     Computes the normalized mean difference between the between-class and within-class matrices.
     
     Parameter
     ---------
-    X1 - samples of Class 1
-    X2 - samples of Class 2
     f - a kernel function. Can use lambda to pass concrete kernel-specific parameters, e.g., 
         lambda x, y: laplacian_kernel(x, y, 2.0/N)
         lambda x, y: laplacian_kernel(x, y, 4.0/N)
 
     Return
     ------
-    ri - ratio
-    r2 - log of ratio
+    ratio
     '''
+
+    labels = list(set(y))
+    assert len(labels) == 2
+    X1 = X[y==labels[0]]
+    X2 = X[y==labels[1]]
+
     LT = np.nan_to_num(f(X1,X1)) # left-top
     RB = np.nan_to_num(f(X2,X2)) # right-bottom
     RT = np.nan_to_num(f(X1,X2)) # right-top
@@ -52,7 +79,7 @@ def nmd(X1, X2, f, display=False):
     m1 = len(RT_LB)
     m2 = len(LT_RB)
     pooled_std = math.sqrt ( ( (m1-1)*std1**2 + (m2-1)*std2**2 ) / (m1-1 + m2-1) )
-    nmd = abs(mu1-mu2) / pooled_std
+    res = abs(mu1-mu2) / pooled_std
 
     # r1 = ( RT.sum() + LB.sum()) / ( LT.sum() + RB.sum()) 
     # r2 = ( np.log(RT).sum() + np.log(LB).sum()) / ( np.log(LT).sum() + np.log(RB).sum()) 
@@ -73,8 +100,7 @@ def nmd(X1, X2, f, display=False):
         plt.title("Left Bottom")
         plt.show()
 
-
-    return nmd
+    return res
 
 def binary_response_pattern(cmap = 'gray'):
     '''
@@ -89,7 +115,7 @@ def binary_response_pattern(cmap = 'gray'):
     cmap : color map scheme
     '''
     X = np.array([0,1]).reshape(-1,1)
-    preview_kernels(X, X, cmap, False, True, False)
+    preview_kernels(X, np.array([0,1]), cmap, False, True, False)
 
 def linear_response_pattern(n = 10, dim = 1, cmap = 'gray'):
     '''
@@ -105,19 +131,17 @@ def linear_response_pattern(n = 10, dim = 1, cmap = 'gray'):
     cmap : color map scheme
     '''
 
-    X1 = np.array(range(1,n+1)).reshape(-1,1) # Generate a column vector of natural series, i.e., 1,2,3...
-    X2 = X1.copy()
-
+    X = np.array(range(1,n+1)).reshape(-1,1) # Generate a column vector of natural series, i.e., 1,2,3...
+    y = [0]*round(n/2) + [1]*(n-round(n/2))
+    
     if dim == 2:
         zeros = np.array([0] * n).reshape(-1,1)
-        X1 = np.hstack((X1, zeros))
-        X2 = np.hstack((zeros,X2))
+        X = np.vstack( (np.hstack((X, zeros)), np.hstack((zeros,X)) ))
+        y = [0] * n + [1] * n
     
-    # X = np.vstack((X1,X2))
-    y = [0]*round(n/2) + [1]*(n-round(n/2)) # we actually don't use y in this function
-    preview_kernels(X1, X2, cmap, False, True, False)
+    preview_kernels(X, np.array(y), cmap, False, True, False)
 
-def preview_kernels(X1, X2=None, cmap = None, optimize_hyper_params = True, \
+def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
     scale = True, embed_title = True):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
@@ -127,8 +151,10 @@ def preview_kernels(X1, X2=None, cmap = None, optimize_hyper_params = True, \
 
     Parameters
     ----------
-    X1 : an m-by-n data matrix. Should be rescaled to non-negative ranges (required by chi2 family) and re-ordered by y. 
-    X2 : the second m-by-n data matrix. If None, X2 = X1.
+    X : an m-by-n data matrix. 
+        Should be already rescaled to non-negative ranges (required by chi2 family) 
+        and re-ordered by y. 
+    y : class labels
     cmap : color map scheme to use. set None to use default, or set another scheme, e.g., 'gray', 'viridis', 'jet', 'rainbow', etc.
         For small dataset, we recommend 'gray'. For complex dataset, we recommend 'viridis'.
     optimize_hyper_params : whether to optimize hyper parameters for each kernel. 
@@ -137,12 +163,14 @@ def preview_kernels(X1, X2=None, cmap = None, optimize_hyper_params = True, \
     embed_title : whether embed the title in the plots. If not, will generate the title in HTML.
     '''
 
-    if X2 is None or X2 == []:
-        X2 = X1.copy()
-
     if scale:
-        X1 = MinMaxScaler().fit_transform(X1)
-        X2 = MinMaxScaler().fit_transform(X2)
+        X = MinMaxScaler().fit_transform(X)
+
+    # to be safe, perform a re-order 
+    if (y is not None and len(set(y)) == 2):
+        labels = list(set(y)) # re-order X by y
+        X = np.vstack( (X[y==labels[0]], X[y==labels[1]] ))
+        y = [labels[0]] * np.sum(y==labels[0]) + [labels[1]] * np.sum(y == labels[1])
     
     for i, key in enumerate(kernel_names):
         best_hparam = None
@@ -150,50 +178,88 @@ def preview_kernels(X1, X2=None, cmap = None, optimize_hyper_params = True, \
         title = str(i+1) + '. ' + (kernel_fullnames[key] if key in kernel_fullnames else key) 
 
         if optimize_hyper_params and key in kernel_hparams:        
-            for param in kernel_hparams[key]:                
-                new_metric = nmd(X1, X2, lambda x,y : kernel_dict[key](x,y, param))
+            for param in kernel_hparams[key]:
+                if key in kernel_hparas_divide_n:
+                    param = param/X.shape[1] # divide hparam by data dim
+                new_metric = nmd(X, y, lambda x,y : kernel_dict[key](x,y, param))
                 if (new_metric > best_metric):
                     best_metric = new_metric
                     best_hparam = param
-            title = (kernel_fullnames[key] if key in kernel_fullnames else key) \
+            title = str(i+1) + '. ' + (kernel_fullnames[key] if key in kernel_fullnames else key) \
                 + ('(' +format(best_hparam,'.2g')+ ')') if best_hparam is not None else ''
 
+        metric_str = ''
         if not optimize_hyper_params or key not in kernel_hparams:
-            plt.imshow(kernel_dict[key](X1,X2), cmap = cmap)
+            plt.imshow(kernel_dict[key](X,X), cmap = cmap)
+            metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict[key](x,y)) \
+                + "\tACC = %.3g" % acc(X, y, lambda x,y : kernel_dict[key](x,y)) 
         else:
-            plt.imshow(kernel_dict[key](X1,X2, best_hparam), cmap = cmap)
+            metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict[key](x,y, param)) \
+                + "\tACC = %.3g" % acc(X, y, lambda x,y : kernel_dict[key](x,y, param))
+            plt.imshow(kernel_dict[key](X,X, best_hparam), cmap = cmap)
 
         plt.axis('off')
         if embed_title:
-            plt.title(title +  '\n' + kernel_formulas[key])
+            plt.title(title +  '\n' + kernel_formulas[key] + '\n' + metric_str)
         else:
             # print(title)
-            display(HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<','&lt;').replace('>','&gt;') + '</p>'))
+            display(HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<','&lt;') \
+                .replace('>','&gt;') + '</p><p>' + metric_str + '</p>' ))
         plt.show()
 
-
-def preview_kernels_on_dataset(X, y=None, cmap = None, optimize_hyper_params = True, \
-    scale = True, embed_title = True):
+def optimize_kernel_hparam(X, y, key, hparams = [], cmap = None):
     '''
-    Parameters
-    ----------
-    X : an m-by-n data matrix. Should be rescaled to non-negative ranges (required by chi2 family) and re-ordered by y. 
-    y : label. Only support 2 classes. If has more than 2 classes, split by ovr or ovo strategy first.
+    Paramters
+    ---------
+    X : need to re-order X by y first
+    '''
+    if hparams is None or len(hparams) <= 0:
+        print('hparams is empty. Try built-in values.')
+        if key not in kernel_hparams:
+            print('Built-in hparams not found. Exit.')
+            return
+
+    for h in hparams:
+        title = (kernel_fullnames[key] if key in kernel_fullnames else key) \
+                + ('(' +format(h,'.2g')+ ')')
+        plt.imshow(kernel_dict[key](X,X, h), cmap = cmap)
+        metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict[key](x,y, h)) \
+                + "\tACC = %.3g" % acc(X, y, lambda x,y : kernel_dict[key](x,y, h)) 
+        plt.axis('off')
+        plt.title(title +  '\n' + kernel_formulas[key] + '\n' + metric_str)
+        plt.show()    
+
+def cosine_kernel_response_pattern (n = 10, cmap = 'gray', embed_title = False):
+    '''
+    Special demo for the cosine kernel with 2D dataset. 
+    We use equal-angle-interval input. While for other kernels, we use equal-interval input. 
     '''
 
-    if scale:
-        X = MinMaxScaler().fit_transform(X)
+    comment = 'Unlike other kernels, we use equal-angle-interval (e.g., $ (i/n)*\pi $) input for the cosine kernel.'
+    X = []
+    for i in range(n):
+        theta = math.pi / n * i
+        X.append([math.cos(theta), math.sin(theta)])
+    
+    X = np.array(X)
 
-    if y is None:
-        X1 = X[:round(len(X)/2)]
-        X2 = X[round(len(X)/2):]
-    elif (len(set(y)) == 2):
-        labels = list(set(y))
-        X1 = X[y==labels[0]]
-        X2 = X[y==labels[0]]
+    y = [0]*round(n/2) + [1]*(n-round(n/2))
+    y = np.array(y)
+
+    plt.imshow(cosine_kernel(X, X), cmap = cmap)
+    plt.axis('off')
+
+    metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict['cosine'](x,y)) \
+                + "\tACC = %.3g" % acc(X, y, lambda x,y : kernel_dict['cosine'](x,y))
+
+    if embed_title:
+        plt.title(kernel_fullnames['cosine'] + '\n' + kernel_formulas['cosine'] \
+            +'\n' + metric_str +'\n' + comment)
     else:
-        print("Error: y must be binary labels. Exit.")
-        return
+        display(HTML('<h3>' + kernel_fullnames['cosine'] + '</h3>' + '<p>' + \
+            kernel_formulas['cosine'].replace('<','&lt;').replace('>','&gt;') + '</p>' \
+            + '<p>' + metric_str + '</p>' + '<p>' + comment + '</p>'))
 
-    return preview_kernels(X1, X2, cmap, optimize_hyper_params, \
-    scale = False, embed_title = embed_title)
+    plt.show()
+ 
+
