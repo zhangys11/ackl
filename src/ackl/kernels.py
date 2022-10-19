@@ -10,8 +10,8 @@ from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
     linear_kernel, sigmoid_kernel, chi2_kernel, polynomial_kernel, \
     additive_chi2_kernel, laplacian_kernel
 from sklearn.gaussian_process.kernels import RationalQuadratic
-from scipy import special
 from sklearn.preprocessing import StandardScaler,MinMaxScaler
+from scipy import special
 
 def gaussian_kernel(x,y,gamma=None):
     '''
@@ -64,6 +64,14 @@ def spline_kernel(x,y):
 
 def sorensen_kernel(x,y):
     return Sorensen()(x,y)
+
+def tanimoto_kernel(x,y):
+    M = np.zeros((len(x),len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            p = np.dot(x1, x2)
+            M[idx1,idx2] = p / (np.linalg.norm(x1)**2 + np.linalg.norm(x2)**2 - p)
+    return M
 
 def min_kernel(x,y):
     return Min()(x,y)
@@ -271,6 +279,7 @@ kernel_dict = {"linear": linear_kernel,
                     "ghi":ghi_kernel,
                     "spline":spline_kernel,
                     "sorensen":sorensen_kernel,
+                    "tanimoto":tanimoto_kernel,
                     "fourier":fourier_kernel,
                     "wavelet":wavelet_kernel,
                     "circular":circular_kernel,
@@ -300,7 +309,7 @@ kernel_formulas = {
     "fourier":r"$k(x, y) = \prod_i { (1-q^2)/(2(1-2q cos(x_i-y_i)+q^2)) }$",
     "circular":r"$k(x, y) = \frac{2}{\pi} \frac{ \lVert x-y \rVert}{\sigma} \sqrt{1 - {\left( \frac{ \lVert x-y \rVert}{\sigma} \right)}^2 } - \frac{2}{\pi} \arccos ( - \frac{ \lVert x-y \rVert}{\sigma}) , if \lVert x-y \rVert < \sigma$ , 0 otherwise.",
     "spherical": r"$k(x, y) = 1 - \frac{3}{2} \frac{\lVert x-y \rVert}{\sigma} + \frac{1}{2} \left( \frac{ \lVert x-y \rVert}{\sigma} \right)^3  \mbox{if}~ \lVert x-y \rVert < \sigma \mbox{, 0 otherwise} $",
-    "Tanimoto":r"$k(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)$",
+    "tanimoto":r"$k(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)$",
     "sorensen":r"$k(x, y) = 2 <x, y> / (||x||^2 + ||y||^2)$",
     "achi2":r"$k(x, y) = \sum_i 2 x_i y_i / (x_i + y_i)$",
     "chi2":r"$k(x, y) = exp( - \gamma * \sum_i (x_i - y_i)^2 / (x_i + y_i) )$",

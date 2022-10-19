@@ -1,22 +1,23 @@
-from cmath import inf, nan
 import math
 import numpy as np
 import numpy.testing as npt 
-from sklearn.linear_model import LogisticRegressionCV
 import matplotlib.pyplot as plt
 from IPython.display import HTML, display
+from sklearn.linear_model import LogisticRegressionCV
+from sklearn.preprocessing import MinMaxScaler
+from ackl.kernels import cosine_kernel
+from kernels import kernel_names, kernel_hparams, kernel_formulas, \
+    kernel_fullnames,kernel_dict,kernel_hparas_divide_n
 
+'''
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
     linear_kernel, sigmoid_kernel, chi2_kernel, polynomial_kernel, \
     additive_chi2_kernel, laplacian_kernel
-from sklearn.preprocessing import MinMaxScaler
-from ackl.kernels import cosine_kernel
 from kernels import anova_kernel, rq_kernel, rq_kernel_v2, exponential_kernel, imq_kernel, \
     cauchy_kernel, ts_kernel, spline_kernel, sorensen_kernel, min_kernel, minmax_kernel, \
     ghi_kernel, fourier_kernel, wavelet_kernel, log_kernel, power_kernel, matern_kernel, \
-    ess_kernel, expmin_kernel, bessel_kernel, feijer_kernel, gaussian_kernel
-from kernels import kernel_names, kernel_hparams, kernel_formulas, \
-    kernel_fullnames,kernel_dict,kernel_hparas_divide_n
+    ess_kernel, expmin_kernel, bessel_kernel, feijer_kernel, gaussian_kernel, tanimoto_kernel
+'''
 
 def acc(X, y, f, display=False):
     '''
@@ -192,10 +193,10 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
         if not optimize_hyper_params or key not in kernel_hparams:
             plt.imshow(kernel_dict[key](X,X), cmap = cmap)
             metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict[key](x,y)) \
-                + "\tACC = %.3g" % acc(X, y, lambda x,y : kernel_dict[key](x,y)) 
+                + "  ACC = %.3g" % acc(X, y, lambda x,y : kernel_dict[key](x,y)) 
         else:
             metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict[key](x,y, param)) \
-                + "\tACC = %.3g" % acc(X, y, lambda x,y : kernel_dict[key](x,y, param))
+                + "  ACC = %.3g" % acc(X, y, lambda x,y : kernel_dict[key](x,y, param))
             plt.imshow(kernel_dict[key](X,X, best_hparam), cmap = cmap)
 
         plt.axis('off')
@@ -250,7 +251,7 @@ def cosine_kernel_response_pattern (n = 10, cmap = 'gray', embed_title = False):
     plt.axis('off')
 
     metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict['cosine'](x,y)) \
-                + "\tACC = %.3g" % acc(X, y, lambda x,y : kernel_dict['cosine'](x,y))
+                + "  ACC = %.3g" % acc(X, y, lambda x,y : kernel_dict['cosine'](x,y))
 
     if embed_title:
         plt.title(kernel_fullnames['cosine'] + '\n' + kernel_formulas['cosine'] \
