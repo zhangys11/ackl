@@ -159,11 +159,11 @@ def ess_kernel(x,y,p=1,s=1):
             
     return M
 
-def feijer_kernel(x,y,k=10):
+def fejer_kernel(x,y,k=10):
     '''
     Parameter
     ---------
-    k - order of feijer series. Usually we don't use k = 1 as it always equals 1.
+    k - order of fejer series. Usually we don't use k = 1 as it always equals 1.
     '''
     if k is None:
         k = 10
@@ -287,7 +287,7 @@ kernel_dict = {"linear": linear_kernel,
                     "log":log_kernel,
                     "power":power_kernel,
                     "bessel":bessel_kernel,
-                    "fejer":feijer_kernel
+                    "fejer":fejer_kernel
 }
 
 kernel_formulas = {
