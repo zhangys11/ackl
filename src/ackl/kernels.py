@@ -330,13 +330,13 @@ kernel_formulas = {
 # Some hparams are dynamic (based on data dim).
 # Not all kernels have tunable hyper-parameters.
 kernel_hparams = {
-    "poly": [1, 2, 3], # when d = 1, becomes a linear kernel
-    "gaussian": [0.1, 0.33, 1, 3.33],
+    "poly": [1, 2, 3, 4], # when d = 1, becomes a linear kernel
+    "gaussian": [1, 3.33, 10, 60, 100, 300, 400],
     "sigmoid": [0.1, 1, 10],
     "laplace": [0.01,0.05,0.1],
     "exp": [0.01,0.03,0.05,0.1],
     "chi2":  [0.0001, 0.001, 0.01 , 0.1 , 1.0], 
-    "anova": [0.00001, 0.0001, 0.001, 0.01, 0.1, 1],
+    "anova": [0.00001, 0.0001, 0.001, 0.01, 0.1, 1, 10, 100],
     "cauchy": [1, 10, 100,1000,10000],
     "power": [.01, .1, 0.25, .5, 1],
     "matern": [0.1, 0.5, 1, 10],
