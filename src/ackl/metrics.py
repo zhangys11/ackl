@@ -8,6 +8,8 @@ from sklearn.preprocessing import MinMaxScaler
 from ackl.kernels import cosine_kernel
 from kernels import kernel_names, kernel_hparams, kernel_formulas, \
     kernel_fullnames,kernel_dict,kernel_hparas_divide_n
+import clams
+
 
 '''
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
@@ -116,7 +118,7 @@ def binary_response_pattern(cmap = 'gray'):
     cmap : color map scheme
     '''
     X = np.array([0,1]).reshape(-1,1)
-    preview_kernels(X, np.array([0,1]), cmap, False, True, False)
+    _ = preview_kernels(X, np.array([0,1]), cmap, False, True, False, False, False)
 
 def linear_response_pattern(n = 10, dim = 1, cmap = 'gray'):
     '''
@@ -140,10 +142,10 @@ def linear_response_pattern(n = 10, dim = 1, cmap = 'gray'):
         X = np.vstack( (np.hstack((X, zeros)), np.hstack((zeros,X)) ))
         y = [0] * n + [1] * n
     
-    preview_kernels(X, np.array(y), cmap, False, True, False)
+    _ = preview_kernels(X, np.array(y), cmap, False, True, False, False, False)
 
 def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
-    scale = True, embed_title = True):
+    scale = True, metrics = True, logplot = False, embed_title = True):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
     Each kernel uses their own default/empirical paramters.    
@@ -160,9 +162,13 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
         For small dataset, we recommend 'gray'. For complex dataset, we recommend 'viridis'.
     optimize_hyper_params : whether to optimize hyper parameters for each kernel. 
         For real-world dataset, use True. For toy dataset, usually use False.
-    scale: whether do feature scaling
+    scale : whether do feature scaling
+    metrics : whether calculate clam metrics.
+    logplot : whether to output the log-scale plot in parallel.
     embed_title : whether embed the title in the plots. If not, will generate the title in HTML.
     '''
+
+    all_dic_metrics = {}
 
     if scale:
         X = MinMaxScaler().fit_transform(X)
@@ -189,24 +195,39 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
             title = str(i+1) + '. ' + (kernel_fullnames[key] if key in kernel_fullnames else key) \
                 + ('(' +format(best_hparam,'.2g')+ ')') if best_hparam is not None else ''
 
-        metric_str = ''
         if not optimize_hyper_params or key not in kernel_hparams:
-            plt.imshow(kernel_dict[key](X,X), cmap = cmap)
-            metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict[key](x,y)) \
-                + "  ACC = %.3g" % acc(X, y, lambda x,y : kernel_dict[key](x,y)) 
+            kns = kernel_dict[key](X,X)
+            metric_nmd = nmd(X, y, lambda x,y : kernel_dict[key](x,y))
         else:
-            metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict[key](x,y, param)) \
-                + "  ACC = %.3g" % acc(X, y, lambda x,y : kernel_dict[key](x,y, param))
-            plt.imshow(kernel_dict[key](X,X, best_hparam), cmap = cmap)
+            kns = kernel_dict[key](X,X, best_hparam)
+            metric_nmd = nmd(X, y, lambda x,y : kernel_dict[key](x,y,param))
+
+        ######## plot ########
+        fig, ax = plt.subplots(1,2, figsize=(12,6))
+        ax[0].imshow(kns, cmap = cmap)
+        ax[0].set_axis_off()
+        if logplot:
+            ax[1].imshow(1+np.log(kns), cmap = cmap)
+            ax[1].set_axis_off()
 
         plt.axis('off')
         if embed_title:
-            plt.title(title +  '\n' + kernel_formulas[key] + '\n' + metric_str)
+            plt.title(title +  '\n' + kernel_formulas[key] + '\n' + "NMD = %.3g" % metric_nmd)
         else:
             # print(title)
             display(HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<','&lt;') \
-                .replace('>','&gt;') + '</p><p>' + metric_str + '</p>' ))
+                .replace('>','&gt;') + '</p><p>' + "NMD = %.3g" % metric_nmd + '</p>' ))
         plt.show()
+
+        ###### metrics ######
+        if metrics:            
+            kns = np.nan_to_num(np.hstack((kns,np.array(y).reshape(-1,1))),   # do nan filtering simultaneously for X and y
+                nan=0, posinf = kns.max(), neginf = kns.min())
+            _, dic_metrics = clams.get_metrics(kns[:,:-1], kns[:,-1].flatten())
+            dic_metrics['NMD'] = metric_nmd
+            all_dic_metrics[key] = dic_metrics
+
+    return all_dic_metrics
 
 def optimize_kernel_hparam(X, y, key, hparams = [], cmap = None):
     '''
@@ -230,7 +251,7 @@ def optimize_kernel_hparam(X, y, key, hparams = [], cmap = None):
         plt.title(title +  '\n' + kernel_formulas[key] + '\n' + metric_str)
         plt.show()    
 
-def cosine_kernel_response_pattern (n = 10, cmap = 'gray', embed_title = False):
+def cosine_kernel_response_pattern (n = 10, cmap = 'gray', logplot = False, embed_title = False):
     '''
     Special demo for the cosine kernel with 2D dataset. 
     We use equal-angle-interval input. While for other kernels, we use equal-interval input. 
@@ -247,7 +268,13 @@ def cosine_kernel_response_pattern (n = 10, cmap = 'gray', embed_title = False):
     y = [0]*round(n/2) + [1]*(n-round(n/2))
     y = np.array(y)
 
-    plt.imshow(cosine_kernel(X, X), cmap = cmap)
+    kns = cosine_kernel(X, X)
+    fig, ax = plt.subplots(1,2, figsize=(12,6))
+    ax[0].imshow(kns, cmap = cmap)
+    ax[0].set_axis_off()
+    if logplot:
+        ax[1].imshow(1+np.log(kns), cmap = cmap)
+        ax[1].set_axis_off()
     plt.axis('off')
 
     metric_str = "NMD = %.3g" % nmd(X, y, lambda x,y : kernel_dict['cosine'](x,y)) \
