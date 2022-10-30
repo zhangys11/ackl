@@ -9,6 +9,7 @@ from abc import abstractmethod, ABCMeta
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
     linear_kernel, sigmoid_kernel, chi2_kernel, polynomial_kernel, \
     additive_chi2_kernel, laplacian_kernel
+from sklearn.decomposition import PCA
 from sklearn.gaussian_process.kernels import RationalQuadratic
 from sklearn.preprocessing import StandardScaler,MinMaxScaler
 from scipy import special
@@ -59,8 +60,34 @@ def cauchy_kernel(x,y,sigma=None): # = img_kernel squared
 def ts_kernel(x,y,d=3): # d = 2 becomes Cauchy
     return TStudent(degree = d)(x,y)
 
-def spline_kernel(x,y):
-    return Spline()(x,y)
+def spline_kernel(x,y, k = 10, flavor = 1):
+    '''
+    The spline kernel. We provide two flavors of implementation.
+
+    Parameters
+    ----------
+    k : preprocessed dims. 
+        The spline kernel doesnot work well on high-dimensional spectroscopic data, 
+        so we can perform a pre-processing DimRed.  
+    flavor : 1 - self implmentation
+        2 - use the Spline() class
+    '''
+
+    if k is not None:
+        k = min(k, x.shape[1])
+        x = PCA(k).fit_transform(x)
+
+    if flavor == 2:
+        return Spline()(x,y)
+    
+    M = np.zeros((len(x),len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            prod = 1
+            for a,b in zip(x1,x2):
+                prod  = prod * (1 + a*b + a*b*min(a,b) - (a+b)/2 * min(a,b)**2 + min(a,b)**3 / 3 )
+            M[idx1,idx2] = prod
+    return M
 
 def sorensen_kernel(x,y):
     return Sorensen()(x,y)

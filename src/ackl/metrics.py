@@ -229,6 +229,50 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
 
     return all_dic_metrics
 
+def visualize_metric_dicts(dics, plot = True):
+    '''
+    Example
+    -------
+    dics = preview_kernels(X, y)
+    html_str = generate_html_from_dicts(dics)
+    display(HTML(html_str)) # use in jupyter notebook
+    '''
+
+    row_names = []
+    column_names = []
+
+    html_str = '<table><tr><th></th>'
+
+    # use the 1st loop to get row and col names
+    for kernel in dics:
+        column_names.append(kernel)
+        html_str += '<th>' + kernel + '</th>'
+        for key in dics[kernel]:
+            if key not in row_names:
+                row_names.append(key)
+    html_str += '</tr>'
+
+    # use the 2nd loop to fill in data
+    for row in row_names:
+        html_str += '<tr><td>' + row + '</td>'
+        metrics = []
+        for col in column_names:
+            metrics.append(dics[col][row] if row in dics[col] else np.nan)
+            html_str += '<td>' + ( str(round(dics[col][row],3)) if row in dics[col] else '') + '</td>'
+        html_str += '</tr>'
+        
+        if plot:
+            plt.figure(figsize = (20,3))
+            plt.title(row)
+            plt.bar(column_names, metrics, alpha = 0.7, width=0.6, edgecolor = 'black', color = 'white')
+            plt.xticks(rotation = 40)
+            plt.show()
+
+    html_str += '</table>'
+    # display(HTML( html_str ))
+
+    return html_str
+
 def optimize_kernel_hparam(X, y, key, hparams = [], cmap = None):
     '''
     Paramters
