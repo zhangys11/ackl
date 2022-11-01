@@ -372,6 +372,7 @@ kernel_hparams = {
     "circular": [0.5,1,2,4,8],
     "spherical": [.1, .5, 1,2,4,8],
     "wave": [2,4],
+    "fourier" : [0.05,0.1,0.2,0.4]
  }
 
 kernel_hparas_divide_n = ['gaussian', 'sigmoid', 'laplace'] 
