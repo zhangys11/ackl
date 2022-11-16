@@ -8,8 +8,7 @@ from sklearn.preprocessing import MinMaxScaler
 from ackl.kernels import cosine_kernel
 from kernels import kernel_names, kernel_hparams, kernel_formulas, \
     kernel_fullnames,kernel_dict,kernel_hparas_divide_n
-import clams
-
+from cla.metrics import get_metrics
 
 '''
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
@@ -223,7 +222,7 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
         if metrics:            
             kns = np.nan_to_num(np.hstack((kns,np.array(y).reshape(-1,1))),   # do nan filtering simultaneously for X and y
                 nan=0, posinf = kns.max(), neginf = kns.min())
-            _, dic_metrics = clams.get_metrics(kns[:,:-1], kns[:,-1].flatten())
+            _, dic_metrics = get_metrics(kns[:,:-1], kns[:,-1].flatten())
             dic_metrics['NMD'] = metric_nmd
             all_dic_metrics[key] = dic_metrics
 
