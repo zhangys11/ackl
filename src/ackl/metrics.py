@@ -218,6 +218,16 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
                 .replace('>','&gt;') + '</p><p>' + "NMD = %.3g" % metric_nmd + '</p>' ))
         plt.show()
 
+
+        ######## TODO: PCA (LDA, PLS) plot ########
+        # fig, ax = plt.subplots(1,2, figsize=(12,6))
+        # kns -> PCA(2)
+        # plot
+        # ...
+
+        #plt.axis('off')
+        #plt.show()
+
         ###### metrics ######
         if metrics:            
             kns = np.nan_to_num(np.hstack((kns,np.array(y).reshape(-1,1))),   # do nan filtering simultaneously for X and y
@@ -227,6 +237,8 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
             all_dic_metrics[key] = dic_metrics
 
     return all_dic_metrics
+
+# metric_eval_dict={...}
 
 def visualize_metric_dicts(dics, plot = True):
     '''
@@ -258,6 +270,10 @@ def visualize_metric_dicts(dics, plot = True):
         for col in column_names:
             metrics.append(dics[col][row] if row in dics[col] else np.nan)
             html_str += '<td>' + ( str(round(dics[col][row],3)) if row in dics[col] else '') + '</td>'
+        
+        # metric_eval_dict > find best
+        # add a <td>best value</td>
+        
         html_str += '</tr>'
         
         if plot:
