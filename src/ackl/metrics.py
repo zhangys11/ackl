@@ -9,6 +9,9 @@ from ackl.kernels import cosine_kernel
 from kernels import kernel_names, kernel_hparams, kernel_formulas, \
     kernel_fullnames,kernel_dict,kernel_hparas_divide_n
 from cla.metrics import get_metrics
+from sklearn.decomposition import PCA
+from qsi.vis import plotComponents2D
+from sklearn.cross_decomposition import PLSRegression
 
 '''
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
@@ -220,13 +223,23 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
 
 
         ######## TODO: PCA (LDA, PLS) plot ########
-        # fig, ax = plt.subplots(1,2, figsize=(12,6))
-        # kns -> PCA(2)
-        # plot
-        # ...
-
-        #plt.axis('off')
+        kns = np.nan_to_num(kns)
+        pca = PCA(n_components=2)  # keep the first 2 components
+        X_pca = pca.fit_transform(kns)
+        plotComponents2D(X_pca, y, legends=labels)
+        plt.title('PCA')
+        plt.axis('off')
         #plt.show()
+
+
+        kns = np.nan_to_num(kns)
+        pls = PLSRegression(n_components=2, scale=False)
+        X_pls = pls.fit(kns, y).transform(kns)
+        plotComponents2D(X_pls, y, legends=labels)  # , tags = range(len(y)), ax = ax
+        # print('score = ', np.round(pls.score(X, y),3))
+        plt.title('PLS')
+        plt.axis('off')
+        plt.show()
 
         ###### metrics ######
         if metrics:            
