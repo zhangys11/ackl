@@ -3,15 +3,15 @@ import numpy as np
 import numpy.testing as npt 
 import matplotlib.pyplot as plt
 from IPython.display import HTML, display
+
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import MinMaxScaler
-from ackl.kernels import cosine_kernel
-from kernels import kernel_names, kernel_hparams, kernel_formulas, \
-    kernel_fullnames,kernel_dict,kernel_hparas_divide_n
-from cla.metrics import get_metrics
 from sklearn.decomposition import PCA
-from qsi.vis import plotComponents2D
 from sklearn.cross_decomposition import PLSRegression
+from kernels import kernel_names, kernel_hparams, kernel_formulas, \
+    kernel_fullnames,kernel_dict,kernel_hparas_divide_n, \
+    cosine_kernel
+from cla.metrics import get_metrics
 
 '''
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
@@ -120,7 +120,7 @@ def binary_response_pattern(cmap = 'gray'):
     cmap : color map scheme
     '''
     X = np.array([0,1]).reshape(-1,1)
-    _ = preview_kernels(X, np.array([0,1]), cmap, False, True, False, False, False)
+    _ = preview_kernels(X, np.array([0,1]), cmap, False, True, False, False, False, False)
 
 def linear_response_pattern(n = 10, dim = 1, cmap = 'gray'):
     '''
@@ -144,10 +144,10 @@ def linear_response_pattern(n = 10, dim = 1, cmap = 'gray'):
         X = np.vstack( (np.hstack((X, zeros)), np.hstack((zeros,X)) ))
         y = [0] * n + [1] * n
     
-    _ = preview_kernels(X, np.array(y), cmap, False, True, False, False, False)
+    _ = preview_kernels(X, np.array(y), cmap, False, True, False, False, False, False)
 
 def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
-    scale = True, metrics = True, logplot = False, embed_title = True):
+    scale = True, metrics = True, logplot = False, scatterplot = True, embed_title = True):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
     Each kernel uses their own default/empirical paramters.    
@@ -167,6 +167,7 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
     scale : whether do feature scaling
     metrics : whether calculate clam metrics.
     logplot : whether to output the log-scale plot in parallel.
+    scatterplot : whether to ouptut the scatter plots after PCA / PLS, to check classifiability.
     embed_title : whether embed the title in the plots. If not, will generate the title in HTML.
     '''
 
@@ -204,7 +205,7 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
             kns = kernel_dict[key](X,X, best_hparam)
             metric_nmd = nmd(X, y, lambda x,y : kernel_dict[key](x,y,param))
 
-        ######## plot ########
+        ######## plot after kernel transforms ########
         fig, ax = plt.subplots(1,2, figsize=(12,6))
         ax[0].imshow(kns, cmap = cmap)
         ax[0].set_axis_off()
@@ -221,26 +222,30 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
                 .replace('>','&gt;') + '</p><p>' + "NMD = %.3g" % metric_nmd + '</p>' ))
         plt.show()
 
+        if scatterplot:
 
-        ######## TODO: PCA (LDA, PLS) plot ########
-        kns = np.nan_to_num(kns)
-        pca = PCA(n_components=2)  # keep the first 2 components
-        X_pca = pca.fit_transform(kns)
-        plotComponents2D(X_pca, y, legends=labels)
-        plt.title('PCA')
-        plt.axis('off')
-        #plt.show()
+            ######## scatter plot after PCA ########
+            kns = np.nan_to_num(kns)
+            pca = PCA(n_components=2)  # keep the first 2 components
+            X_pca = pca.fit_transform(kns)
+            plotComponents2D(X_pca, y)
+            plt.title('PCA')
+            plt.show()
 
-
-        kns = np.nan_to_num(kns)
-        pls = PLSRegression(n_components=2, scale=False)
-        X_pls = pls.fit(kns, y).transform(kns)
-        plotComponents2D(X_pls, y, legends=labels)  # , tags = range(len(y)), ax = ax
-        # print('score = ', np.round(pls.score(X, y),3))
-        plt.title('PLS')
-        plt.axis('off')
-        plt.show()
-
+            ######## scatter plot after PLS ########
+            kns = np.nan_to_num(kns)
+            pls = PLSRegression(n_components=2, scale=False)
+            X_pls = pls.fit(kns, y).transform(kns)
+            try:
+                pls.score(kns, y)
+                plotComponents2D(X_pls, y)
+                plt.title('PLS (R2 = ' + str(np.round(pls.score(kns, y),3)) + ')') # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable. 
+                plt.show()
+            except Exception as e:
+                print('Exception : ', e)
+                # print('X_pls = ', X_pls)
+                # plt.title('PLS')
+            
         ###### metrics ######
         if metrics:            
             kns = np.nan_to_num(np.hstack((kns,np.array(y).reshape(-1,1))),   # do nan filtering simultaneously for X and y
@@ -363,3 +368,58 @@ def cosine_kernel_response_pattern (n = 10, cmap = 'gray', logplot = False, embe
     plt.show()
  
 
+def plotComponents2D(X, y, labels = None, use_markers = False, ax=None, legends = None, tags = None):
+    '''
+    Copied from qsi.vis.plotComponents2D, to avoid package dependency.
+    '''
+    if X.shape[1] < 2:
+        print('ERROR: X MUST HAVE AT LEAST 2 FEATURES/COLUMNS! SKIPPING plotComponents2D().')
+        return
+    
+    # Gray shades can be given as a string encoding a float in the 0-1 range
+    colors = ['0.9', '0.1', 'red', 'blue', 'black','orange','green','cyan','purple','gray']
+    markers = ['o', 's', '^', 'D', 'H', 'o', 's', '^', 'D', 'H', 'o', 's', '^', 'D', 'H', 'o', 's', '^', 'D', 'H']
+
+    if (ax is None):
+        fig, ax = plt.subplots()
+        
+    if (y is None or len(y) == 0):
+        labels = [0] # only one class
+    if (labels is None):
+        labels = set(y)
+
+    i=0        
+
+    for label in labels:
+        if y is None or len(y) == 0:
+            cluster = X
+        else:
+            cluster = X[np.where(y == label)]
+        # print(cluster.shape)
+
+        if use_markers:
+            ax.scatter([cluster[:,0]], [cluster[:,1]], 
+                       s=40, 
+                       marker=markers[i], 
+                       facecolors='none', 
+                       edgecolors=colors[i+3],
+                       label= (str(legends[i]) if legends is not None else ("Y = " + str(label)  + ' (' + str(len(cluster)) + ')')) )
+        else:
+            ax.scatter([cluster[:,0]], [cluster[:,1]], 
+                       s=70, 
+                       facecolors=colors[i],  
+                       label= (str(legends[i]) if legends is not None else ("Y = " + str(label) + ' (' + str(len(cluster)) + ')')), 
+                       edgecolors = 'black', 
+                       alpha = .4) # cmap='tab20'                
+        i=i+1
+    
+    if (tags is not None):
+        for j,tag in enumerate(tags):
+            ax.annotate(str(tag), (X[j,0] + 0.1, X[j,1] - 0.1))
+        
+    ax.legend()
+
+    ax.axes.xaxis.set_visible(False) 
+    ax.axes.yaxis.set_visible(False)
+    
+    return ax
