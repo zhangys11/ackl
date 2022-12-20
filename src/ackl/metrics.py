@@ -8,10 +8,10 @@ from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 from sklearn.cross_decomposition import PLSRegression
-from kernels import kernel_names, kernel_hparams, kernel_formulas, \
+from .kernels import kernel_names, kernel_hparams, kernel_formulas, \
     kernel_fullnames,kernel_dict,kernel_hparas_divide_n, \
     cosine_kernel
-from cla.metrics import get_metrics
+from cla.metrics import get_metrics, metric_polarity_dict
 
 '''
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
@@ -258,103 +258,6 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
 
     return all_dic_metrics
 
-# metric_eval_dict={...}
-metric_eval_dict={'classification.ACC': np.argmax,
- 'classification.Kappa': np.argmax,
- 'classification.F1_Score': np.argmax ,
- 'classification.Jaccard': np.argmin,
- 'classification.Precision': np.argmax,
- 'classification.Recall': np.argmax,
- 'classification.McNemar': np.argmin,
- 'classification.McNemar.CHI2':np.argmax,
- 'classification.CochranQ': np.argmin,
- 'classification.CochranQ.T':np.argmax,
- 'classification.CrossEntropy':np.argmin,
- 'classification.Mean_KLD': np.argmin,
- 'classification.AP': np.argmax,
- 'classification.Brier':np.argmin ,
- 'classification.ROC_AUC':np.argmax,
- 'classification.PR_AUC':np.argmin,
- 'classification.BER':np.argmin,
- 'classification.SVM.Margin':np.argmax,
- 'correlation.IG':np.argmax,
- 'correlation.IG.max':np.argmax,
- 'correlation.r':np.argmax,
- 'correlation.r2':np.argmax,
- 'correlation.r.p':np.argmin,
- 'correlation.r.max':np.argmax,
- 'correlation.r.p.min':np.argmin,
- 'correlation.rho':np.argmax,
- 'correlation.rho.p':np.argmin,
- 'correlation.rho.max':np.argmax,
- 'correlation.rho.p.min':np.argmin,
- 'correlation.tau':np.argmin,
- 'correlation.tau.p':np.argmin,
- 'correlation.tau.max':np.argmax,
- 'correlation.tau.p.min':np.argmin,
- 'test.ES':np.argmax,
- 'test.ES.max':np.argmax,
- 'test.student':np.argmin,
- 'test.student.min':np.argmin,
- 'test.student.min.log10':np.argmin,
- 'test.student.T':np.argmax,
- 'test.student.T.max':np.argmin,
- 'test.ANOVA':np.argmin,
- 'test.ANOVA.min':np.argmin,
- 'test.ANOVA.min.log10':np.argmin,
- 'test.ANOVA.F':np.argmax,
- 'test.ANOVA.F.max':np.argmax,
- 'test.MANOVA':np.argmin,
- 'test.MANOVA.log10':np.argmin,
- 'test.MANOVA.F':np.argmax,
- 'test.MWW':np.argmin,
- 'test.MWW.min':np.argmin,
- 'test.MWW.min.log10':np.argmin,
- 'test.MWW.U':np.argmin,
- 'test.MWW.U.min':np.argmin,
- 'test.KS':np.argmin,
- 'test.KS.min':np.argmin,
- 'test.KS.min.log10':np.argmin,
- 'test.KS.D':np.argmax,
- 'test.KS.D.max':np.argmax,
- 'test.CHISQ':np.argmin,
- 'test.CHISQ.min':np.argmin,
- 'test.CHISQ.min.log10':np.argmin,
- 'test.CHISQ.CHI2':np.argmax,
- 'test.CHISQ.CHI2.max':np.argmax,
- 'test.KW':np.argmin,
- 'test.KW.min':np.argmin,
- 'test.KW.min.log10':np.argmin,
- 'test.KW.H':np.argmax,
- 'test.KW.H.max':np.argmax,
- 'test.Median':np.argmin,
- 'test.Median.min':np.argmin,
- 'test.Median.min.log10':np.argmin,
- 'test.Median.CH2':np.argmax,
- 'test.Median.CH2.max':np.argmax,
- 'overlapping.F1.mean':np.argmax,
- 'overlapping.F1.sd':np.argmax,
- 'overlapping.F1v.mean':np.argmax,
- 'overlapping.F1v.sd':np.argmin,
- 'overlapping.F2.mean':np.argmin,
- 'overlapping.F2.sd':np.argmin,
- 'overlapping.F3.mean':np.argmax,
- 'overlapping.F3.sd':np.argmin,
- 'overlapping.F4.mean':np.argmax,
- 'overlapping.F4.sd':np.argmin,
- 'neighborhood.N1':np.argmin,
- 'neighborhood.N2.mean':np.argmin,
- 'neighborhood.N2.sd':np.argmin,
- 'neighborhood.N3.mean':np.argmin,
- 'neighborhood.N3.sd':np.argmax,
- 'neighborhood.N4.mean':np.argmin,
- 'neighborhood.N4.sd':np.argmin,
- 'neighborhood.T1.mean':np.argmax,
- 'neighborhood.T1.sd':np.argmin,
- 'neighborhood.LSC':np.argmax,
- 'linearity.L1.mean':np.argmin,
- 'linearity.L1.sd':np.argmin}
-
 def visualize_metric_dicts(dics, plot = True):
     '''
     Example
@@ -376,6 +279,8 @@ def visualize_metric_dicts(dics, plot = True):
         for key in dics[kernel]:
             if key not in row_names:
                 row_names.append(key)
+
+    html_str += '<th>best kernel(s)</th>'
     html_str += '</tr>'
 
     # use the 2nd loop to fill in data
@@ -386,14 +291,25 @@ def visualize_metric_dicts(dics, plot = True):
             metrics.append(dics[col][row] if row in dics[col] else np.nan)
             html_str += '<td>' + ( str(round(dics[col][row],3)) if row in dics[col] else '') + '</td>'
         
-        # metric_eval_dict > find best
-        # add a <td>best value</td>
-        
+        try:
+            if row == 'NMD': # this is a kernel-specific metric, not listed in metric_polarity_dict
+                best_metric_idx = np.nanargmax(metrics)
+            else:
+                best_metric_idx = metric_polarity_dict[row](metrics)
+
+            best_metric_value = metrics[best_metric_idx] # we may have multiple best values
+            best_metric_idxs = np.where(metrics == best_metric_value)
+        except Exception as e:
+            print(e) # All-NaN slice encountered
+            best_metric_idxs = []
+
+        best_kernel_names = str(np.array(column_names)[best_metric_idxs])
+        html_str += '<td>' + best_kernel_names + '</td>'        
         html_str += '</tr>'
         
         if plot:
             plt.figure(figsize = (20,3))
-            plt.title(row)
+            plt.title(row + "\nbest kernels: " + best_kernel_names)
             plt.bar(column_names, metrics, alpha = 0.7, width=0.6, edgecolor = 'black', color = 'white')
             plt.xticks(rotation = 40)
             plt.show()
