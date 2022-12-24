@@ -11,7 +11,7 @@ from sklearn.cross_decomposition import PLSRegression
 from .kernels import kernel_names, kernel_hparams, kernel_formulas, \
     kernel_fullnames,kernel_dict,kernel_hparas_divide_n, \
     cosine_kernel
-from cla.metrics import get_metrics, metric_polarity_dict
+from cla.metrics import get_metrics, metric_polarity_dict, es_max
 
 '''
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
@@ -43,6 +43,36 @@ def acc(X, y, f, display=False):
         return clf.score(XK, y)
     except:
         return np.NaN
+
+def kes(X, y, f, display=False):
+    '''
+    kernel effect size
+
+    Parameter
+    ---------
+    f - a kernel function. Can use lambda to pass concrete kernel-specific parameters, e.g., 
+        lambda x, y: laplacian_kernel(x, y, 2.0/N)
+        lambda x, y: laplacian_kernel(x, y, 4.0/N)
+
+    Return
+    ------
+    The max effect size of all the PLS components after kernel transform
+    '''    
+    XK = f(X,X) # kernel transform
+    XK = np.nan_to_num(XK)
+    
+    try:
+        pls = PLSRegression(n_components=len(XK), scale = False)
+        X_dr = pls.fit(XK, y).transform(XK)
+    except:
+        print('Exception in PLS. Use PCA instead.')
+        try:
+            X_dr = PCA().fit_transform(XK)
+        except:
+            X_dr = XK # do without DR
+    
+    X_dr = np.nan_to_num(X_dr)
+    return es_max(X_dr, y)
 
 def nmd(X, y, f, display=False):
     '''
@@ -120,7 +150,7 @@ def binary_response_pattern(cmap = 'gray'):
     cmap : color map scheme
     '''
     X = np.array([0,1]).reshape(-1,1)
-    _ = preview_kernels(X, np.array([0,1]), cmap, False, True, False, False, False, False)
+    _ = preview_kernels(X, np.array([0,1]), cmap, None, True, False, False, False, False)
 
 def linear_response_pattern(n = 10, dim = 1, cmap = 'gray'):
     '''
@@ -144,9 +174,9 @@ def linear_response_pattern(n = 10, dim = 1, cmap = 'gray'):
         X = np.vstack( (np.hstack((X, zeros)), np.hstack((zeros,X)) ))
         y = [0] * n + [1] * n
     
-    _ = preview_kernels(X, np.array(y), cmap, False, True, False, False, False, False)
+    _ = preview_kernels(X, np.array(y), cmap, None, True, False, False, False, False)
 
-def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
+def preview_kernels(X, y, cmap = None, hyper_param_optimizer = kes, \
     scale = True, metrics = True, logplot = False, scatterplot = True, embed_title = True):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
@@ -162,12 +192,13 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
     y : class labels
     cmap : color map scheme to use. set None to use default, or set another scheme, e.g., 'gray', 'viridis', 'jet', 'rainbow', etc.
         For small dataset, we recommend 'gray'. For complex dataset, we recommend 'viridis'.
-    optimize_hyper_params : whether to optimize hyper parameters for each kernel. 
-        For real-world dataset, use True. For toy dataset, usually use False.
+    hyper_param_optimizer : which optimizer to optimize the hyper parameters for each kernel. 
+        For real-world dataset, use kes by default. For toy dataset, set None to disable optimizer.
     scale : whether do feature scaling
     metrics : whether calculate clam metrics.
     logplot : whether to output the log-scale plot in parallel.
     scatterplot : whether to ouptut the scatter plots after PCA / PLS, to check classifiability.
+        The PLS tries to maximize the covariance between X and Y.
     embed_title : whether embed the title in the plots. If not, will generate the title in HTML.
     '''
 
@@ -187,18 +218,18 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
         best_metric = -np.inf
         title = str(i+1) + '. ' + (kernel_fullnames[key] if key in kernel_fullnames else key) 
 
-        if optimize_hyper_params and key in kernel_hparams:        
+        if hyper_param_optimizer is not None and key in kernel_hparams:        
             for param in kernel_hparams[key]:
                 if key in kernel_hparas_divide_n:
                     param = param/X.shape[1] # divide hparam by data dim
-                new_metric = nmd(X, y, lambda x,y : kernel_dict[key](x,y, param))
+                new_metric = hyper_param_optimizer(X, y, lambda x,y : kernel_dict[key](x,y, param))
                 if (new_metric > best_metric):
                     best_metric = new_metric
                     best_hparam = param
             title = str(i+1) + '. ' + (kernel_fullnames[key] if key in kernel_fullnames else key) \
                 + ('(' +format(best_hparam,'.2g')+ ')') if best_hparam is not None else ''
 
-        if not optimize_hyper_params or key not in kernel_hparams:
+        if hyper_param_optimizer is None or key not in kernel_hparams:
             kns = kernel_dict[key](X,X)
             metric_nmd = nmd(X, y, lambda x,y : kernel_dict[key](x,y))
         else:
@@ -228,6 +259,7 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
             kns = np.nan_to_num(kns)
             pca = PCA(n_components=2)  # keep the first 2 components
             X_pca = pca.fit_transform(kns)
+            X_pca = np.nan_to_num(X_pca)
             plotComponents2D(X_pca, y)
             plt.title('PCA')
             plt.show()
@@ -238,6 +270,7 @@ def preview_kernels(X, y, cmap = None, optimize_hyper_params = True, \
                 kns = np.nan_to_num(kns)
                 pls = PLSRegression(n_components=2, scale=False)
                 X_pls = pls.fit(kns, y).transform(kns)
+                X_pls = np.nan_to_num(X_pls)
             
                 pls.score(kns, y)
                 plotComponents2D(X_pls, y)
@@ -285,12 +318,18 @@ def visualize_metric_dicts(dics, plot = True):
 
     # use the 2nd loop to fill in data
     for row in row_names:
+        if row not in metric_polarity_dict:
+            continue
+
         html_str += '<tr><td>' + row + '</td>'
         metrics = []
         for col in column_names:
             metrics.append(dics[col][row] if row in dics[col] else np.nan)
             html_str += '<td>' + ( str(round(dics[col][row],3)) if row in dics[col] else '') + '</td>'
         
+        metrics = np.nan_to_num(metrics, nan=np.nan, posinf=np.nan, neginf=np.nan)
+
+        best_metric_value = None
         try:
             if row == 'NMD': # this is a kernel-specific metric, not listed in metric_polarity_dict
                 best_metric_idx = np.nanargmax(metrics)
@@ -309,7 +348,7 @@ def visualize_metric_dicts(dics, plot = True):
         
         if plot:
             plt.figure(figsize = (20,3))
-            plt.title(row + "\nbest kernels: " + best_kernel_names)
+            plt.title(row + "\nbest kernels: " + best_kernel_names+ "\nbest value: " + str(best_metric_value))
             plt.bar(column_names, metrics, alpha = 0.7, width=0.6, edgecolor = 'black', color = 'white')
             plt.xticks(rotation = 40)
             plt.show()
