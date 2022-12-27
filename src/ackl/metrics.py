@@ -1,8 +1,7 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-import IPython.display.display # import full name to avoid conflict with those display params
-import IPython.display.HTML
+import IPython.core.display # import full name to avoid conflict with those display params
 
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import MinMaxScaler
