@@ -18,7 +18,6 @@ from sklearn.gaussian_process.kernels import RationalQuadratic
 from sklearn.preprocessing import MinMaxScaler
 
 
-
 def gaussian_kernel(x, y, gamma=None):
     '''
     Gaussian kernel. An alias of sklearn.metrics.pairwise.rbf_kernel
@@ -41,15 +40,15 @@ def anova_kernel(x, y, sigma=1, d=2):
     return ANOVA(sigma=sigma, d=d)(x, y)
 
 
-def rq_kernel(x, y, l=1, a=1):
+def rq_kernel(x, y, a=1, l=1):
     '''
     The Rational Quadratic kernel. Using sklearn.gaussian_process.kernels.RationalQuadratic.
     k(x_i, x_j) = \\left(1 + \\frac{d(x_i, x_j)^2 }{ 2\\alpha  l^2}\\right)^{-\\alpha}
 
     Paramters
     ---------
-    l - length scale
     a - scale mixture
+    l - length scale    
     '''
     return RationalQuadratic(length_scale=l, alpha=a)(x, y)
 
@@ -148,7 +147,16 @@ def ghi_kernel(x, y, alpha=1):
     return GeneralizedHistogramIntersection(alpha=alpha)(x, y)
 
 
-def fourier_kernel(x, y, q=0.1):
+def fourier_kernel(x, y, q=0.1):    
+
+    M = np.zeros((len(x), len(y)))
+    for idx1, x1 in enumerate(x):
+        for idx2, x2 in enumerate(y):
+            d = np.linalg.norm(x1-x2)
+            M[idx1, idx2] = (1-q**2) / (2*(1-2*q*math.cos(d)+q**2))
+    return M
+
+def fourier_kernel_v2(x, y, q=0.1):
     return Fourier(q=q)(x, y)
 
 
@@ -249,8 +257,8 @@ def circular_kernel(x, y, s=2):
         for idx2, x2 in enumerate(y):
             d = np.linalg.norm(x1-x2)
             if d < s:
-                M[idx1, idx2] = 2/math.pi*d/s * \
-                    math.sqrt(1-(d/s)**2) - 2/math.pi * math.acos(-d/s)
+                M[idx1, idx2] = 2/math.pi * math.acos(d/s) - \
+                    2/math.pi * d/s * math.sqrt(1-(d/s)**2)
             else:
                 M[idx1, idx2] = 0
     return M
@@ -373,14 +381,14 @@ kernel_formulas = {
     "cosine": r"$k(x, y) = <x,y>/(||x|| ||y||)$",
     "wave": r"$k(x, y) = \frac{\sigma}{\lVert x-y \rVert } \sin \frac{\lVert x-y \rVert }{\sigma}$",
     "matern": r"$k(x, y) = (||x-y||^v \sqrt{2v} / s) * Bessel(||x-y||^v \sqrt{2v} / s) /(\Gamma(v) 2^{v-1} ) $",
-    "rq": r"$k(x, y) = 1 - ||x-y||^2/(||x-y||^2+c)$",
+    "rq": r"$k(x, y) = \left(1 + \frac{ {||x - y||} ^2 }{ 2\alpha  l^2}\right)^{-\alpha} $",
     "imq": r"$k(x, y) = 1 / \sqrt{||x-y||^2 + c^2}$",
     "cauchy": r"$k(x, y) = 1 / (1 + ||x - y||^2 / s^2)$",
     "ts": r"$k(x, y) = 1 / (1 + ||x - y||^d)$",
-    "anova": r"$k(x, y) = \sum_k exp( -sigma * (x_k - y_k)^2 )^d$",
+    "anova": r"$k(x, y) = \sum_k exp( - \sigma * (x_k - y_k)^2 )^d$",
     "wavelet": r"$k(x, y) = \prod_i { h( (x_i-c)/a ) h( (y_i-c)/a ) }$",
     "fourier": r"$k(x, y) = \prod_i { (1-q^2)/(2(1-2q cos(x_i-y_i)+q^2)) }$",
-    "circular": r"$k(x, y) = \frac{2}{\pi} \frac{ \lVert x-y \rVert}{\sigma} \sqrt{1 - {\left( \frac{ \lVert x-y \rVert}{\sigma} \right)}^2 } - \frac{2}{\pi} \arccos ( - \frac{ \lVert x-y \rVert}{\sigma}) , if \lVert x-y \rVert < \sigma$ , 0 otherwise.",
+    "circular": r"$k(x, y) = \frac{2}{\pi} \arccos ( \frac{ \lVert x-y \rVert}{\sigma}) - \frac{2}{\pi} \frac{ \lVert x-y \rVert}{\sigma} \sqrt{1 - {\left( \frac{ \lVert x-y \rVert}{\sigma} \right)}^2 } , if \lVert x-y \rVert < \sigma$ , 0 otherwise.",
     "spherical": r"$k(x, y) = 1 - \frac{3}{2} \frac{\lVert x-y \rVert}{\sigma} + \frac{1}{2} \left( \frac{ \lVert x-y \rVert}{\sigma} \right)^3  \mbox{if}~ \lVert x-y \rVert < \sigma \mbox{, 0 otherwise} $",
     "tanimoto": r"$k(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)$",
     "sorensen": r"$k(x, y) = 2 <x, y> / (||x||^2 + ||y||^2)$",
@@ -415,10 +423,12 @@ kernel_hparams = {
     "matern": [0.1, 0.5, 1, 10],
     "ess": [0.01, 0.1, 0.5, 1, 2, 10],
     "fejer": [2, 3, 4, 5],
-    "circular": [0.01, 0.1, 0.5, 1, 2, 5, 10],
-    "spherical": [.0000001, .00001, .0001, .001, .01, .1, 1, 10],
-    "wave": [2, 4, 6, 8],
-    "fourier": [0.05, 0.1, 0.2, 0.4, 0.8, 2]
+    "circular": [0.01, 0.1, 1, 10, 1000, 10000],
+    "spherical": [.001, 0.1, 10, 1000, 10000],
+    "wave": [1, 2, 10, 100, 1000, 10000],
+    "fourier": [0.05, 0.1, 0.2, 0.4, 0.8, 2],
+    "rq": [0.5, 1, 2, 4, 16],
+    "imq": [0.5, 1, 2],
 }
 
 kernel_hparas_divide_n = ['gaussian', 'sigmoid', 'laplace']

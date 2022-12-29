@@ -152,3 +152,4 @@ cython_debug/
 #.idea/
 
 *.pkl
+hj3.csv

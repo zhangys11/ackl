@@ -1,7 +1,9 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-import IPython.core.display # import full name to avoid conflict with those display params
+# import full name to avoid conflict with those display params
+import IPython.core.display
+import timeit
 
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import MinMaxScaler
@@ -11,6 +13,7 @@ from cla.metrics import get_metrics, metric_polarity_dict, es_max
 from .kernels import kernel_names, kernel_hparams, kernel_formulas, \
     kernel_fullnames, kernel_dict, kernel_hparas_divide_n, \
     cosine_kernel
+
 
 def acc(X, y, f):
     '''
@@ -175,12 +178,12 @@ def linear_response_pattern(n=10, dim=1, cmap='gray'):
 
 
 def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
-                    scale=True, metrics=True, logplot=False, scatterplot=True, embed_title=True):
+                    scale=False, metrics=True, logplot=False, scatterplot=True, embed_title=True):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
     Each kernel uses their own default/empirical paramters.    
     In binary classification, because the first and last half samples belong to two classes respectively. 
-    We want to get a contrasive pattern, i.e., (LT、RB) 与 （LB、RT）have blocks of different colors. 
+    We want to get a contrasive pattern, i.e., (LT、RB) and （LB、RT）have blocks of different colors. 
 
     Parameters
     ----------
@@ -253,7 +256,7 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
         else:
             # print(title)
             IPython.display.display(IPython.display.HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<', '&lt;')
-                         .replace('>', '&gt;') + '</p><p>' + "NMD = %.3g" % metric_nmd + '</p>'))
+                                                         .replace('>', '&gt;') + '</p><p>' + "NMD = %.3g" % metric_nmd + '</p>'))
         plt.show()
 
         if scatterplot:
@@ -429,12 +432,46 @@ def cosine_kernel_response_pattern(n=10, cmap='gray', logplot=False, embed_title
                   + '\n' + metric_str + '\n' + comment)
     else:
         IPython.display.display(IPython.display.HTML('<h3>' + kernel_fullnames['cosine'] + '</h3>' + '<p>' +
-                     kernel_formulas['cosine'].replace(
-                         '<', '&lt;').replace('>', '&gt;') + '</p>'
-                     + '<p>' + metric_str + '</p>' + '<p>' + comment + '</p>'))
+                                                     kernel_formulas['cosine'].replace(
+            '<', '&lt;').replace('>', '&gt;') + '</p>'
+            + '<p>' + metric_str + '</p>' + '<p>' + comment + '</p>'))
 
     plt.show()
 
+
+def time_cost_kernels(X, repeat=10, display=True):
+    '''
+    Time cost of kernels
+
+    return
+    ------
+    dct_mu : a dict of mean time cost of each kernel
+    '''
+    dct = {}
+    for key, f in kernel_dict.items():
+        dct[key] = timeit.repeat(lambda: f(X, X), repeat=repeat, number=1)
+
+    x, y = zip(*dct.items())
+    y = np.array(y)
+
+    if display:
+        plt.figure(figsize=(15, 4))
+        plt.scatter(x, y.mean(axis=1))
+        plt.errorbar(x, y.mean(axis=1), y.std(axis=1) * 1,
+                     color="dodgerblue", linewidth=1, elinewidth=10, ecolor='r',
+                     alpha=0.5, label=' $\mu ± 1 \sigma$ (' + str(y.shape[1]) + ' runs)')  # X.std(axis = 0)
+
+        plt.legend()
+        # plt.bar(x, y)
+        plt.xticks(rotation=45)
+        plt.ylabel('second')
+        plt.show()
+
+    dct_mu = {}
+    for k,v in zip(x, y.mean(axis = 1)):
+        dct_mu[k] = v
+
+    return dct_mu
 
 def plot_components_2d(X, y, labels=None, use_markers=False, ax=None, legends=None, tags=None):
     '''
