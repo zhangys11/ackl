@@ -1,14 +1,15 @@
 import math
+import timeit
 import numpy as np
 import matplotlib.pyplot as plt
 # import full name to avoid conflict with those display params
 import IPython.core.display
-import timeit
 
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 from sklearn.cross_decomposition import PLSRegression
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from cla.metrics import get_metrics, metric_polarity_dict, es_max
 from .kernels import kernel_names, kernel_hparams, kernel_formulas, \
     kernel_fullnames, kernel_dict, kernel_hparas_divide_n, \
@@ -56,18 +57,22 @@ def kes(X, y, f):
     XK = np.nan_to_num(XK)
 
     try:
-        pls = PLSRegression(n_components=len(XK), scale=False)
-        X_dr = pls.fit(XK, y).transform(XK)
-    except:
-        print('Exception in PLS. Use PCA instead.')
+        lda = LinearDiscriminantAnalysis()
+        X_dr = lda.fit_transform(XK, y)
+    except:    
+        print('Exception in LDA. Try PLS.')
         try:
-            X_dr = PCA().fit_transform(XK)
+            pls = PLSRegression(n_components=len(XK), scale=False)
+            X_dr = pls.fit(XK, y).transform(XK)
         except:
-            X_dr = XK  # do without DR
+            print('Exception in PLS. Use PCA instead.')
+            try:
+                X_dr = PCA().fit_transform(XK)
+            except:
+                X_dr = XK  # do without DR
 
     X_dr = np.nan_to_num(X_dr)
     return es_max(X_dr, y)
-
 
 def nmd(X, y, f, display=False):
     '''
@@ -270,9 +275,48 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
             plt.title('PCA')
             plt.show()
 
+            ######## scatter plot after LDA ########
+
+            try:
+                kns = np.nan_to_num(kns)
+                lda = LinearDiscriminantAnalysis()
+                X_lda = lda.fit(kns, y).transform(kns)
+                X_lda = np.nan_to_num(X_lda)
+
+                lda.score(kns, y)
+                if (X_lda.shape[1] == 1):
+                    X_lda = np.hstack((X_lda, np.zeros((X_lda.shape[0], 1))))
+                plot_components_2d(X_lda, y)
+                # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
+                plt.title(
+                    'LDA (ACC = ' + str(np.round(lda.score(kns, y), 3)) + ')')
+                plt.show()
+            except Exception as e:
+                print('Exception : ', e)
+                # print('X_pls = ', X_pls)
+                # plt.title('PLS')
+
             ######## scatter plot after PLS ########
 
             try:
+                ''' # using CV
+                kns = np.nan_to_num(kns)
+                pls = PLSRegression(n_components=2, scale=False)
+
+                k_train, k_test, y_train, y_test = train_test_split(
+                    kns, y, test_size=0.3)
+
+                X_pls = pls.fit(k_train, y_train).transform(k_test)
+                X_pls = np.nan_to_num(X_pls)
+
+                pls.score(k_test, y_test)
+                plot_components_2d(X_pls, y_test, legends=['C1', 'C2'])
+                # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
+                plt.title(
+                    'PLS (R2 = ' + str(np.round(pls.score(k_test, y_test), 3)) + ')')
+                plt.show()
+                '''
+
                 kns = np.nan_to_num(kns)
                 pls = PLSRegression(n_components=2, scale=False)
                 X_pls = pls.fit(kns, y).transform(kns)

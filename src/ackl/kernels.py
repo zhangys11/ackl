@@ -147,7 +147,7 @@ def ghi_kernel(x, y, alpha=1):
     return GeneralizedHistogramIntersection(alpha=alpha)(x, y)
 
 
-def fourier_kernel(x, y, q=0.1):    
+def fourier_kernel(x, y, q=0.1):
 
     M = np.zeros((len(x), len(y)))
     for idx1, x1 in enumerate(x):
@@ -155,6 +155,7 @@ def fourier_kernel(x, y, q=0.1):
             d = np.linalg.norm(x1-x2)
             M[idx1, idx2] = (1-q**2) / (2*(1-2*q*math.cos(d)+q**2))
     return M
+
 
 def fourier_kernel_v2(x, y, q=0.1):
     return Fourier(q=q)(x, y)
