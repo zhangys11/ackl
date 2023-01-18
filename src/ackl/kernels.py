@@ -321,11 +321,10 @@ def cosine_kernel(x, y):
 kernel_fullnames = {
     "poly": "polynomial",
     "rbf": "radial basis function",
-    "laplace": "laplacian",
+    "laplace": "laplacian / exponential",
     "cosine": "cosine similarity",
     "chi2": "chi-squared",
     "achi2": "additive chi-squared",
-    "exp": "exponential",
     "ess": "exponential sine squared",
     "rq": "rational quadratic",
     "imq": "inverse multi quadric",
@@ -334,6 +333,9 @@ kernel_fullnames = {
     "minman": "min-max",
     "expmin": "exponential-min",
     "ghi": "generalized histogram intersection",
+    "cauchy": "Cauchy",
+    "fejer": "Fejér",
+    "matern": "Matérn",
 }
 
 # kernel names and functions
@@ -341,7 +343,7 @@ kernel_dict = {"linear": linear_kernel,
                "poly": polynomial_kernel,
                "sigmoid": sigmoid_kernel,
                "gaussian": gaussian_kernel,  # alias of "rbf": rbf_kernel,
-               "exp": laplacian_kernel,  # alias of laplacian
+               # "exp": laplacian_kernel,  # alias of laplacian
                "laplace": laplacian_kernel,
                "matern": matern_kernel,
                "chi2": chi2_kernel,
@@ -415,8 +417,8 @@ kernel_hparams = {
     "poly": [1, 2, 3, 4],  # when d = 1, becomes a linear kernel
     "gaussian": [1, 3.33, 10, 60, 100, 300, 400],
     "sigmoid": [0.1, 1, 10],
-    "laplace": [0.1, 1, 10, 30, 50],
-    "exp": [0.01, 0.03, 0.05, 0.1],
+    "laplace": [0.01, 0.1, 1, 10, 30, 50],
+    # "exp": alias of laplace
     "chi2":  [0.0001, 0.001, 0.01, 0.1, 1.0, 10, 100],
     "anova": [0.00001, 0.001, 0.1, 1, 10, 1000, 100000],
     "cauchy": [1, 10, 100, 1000, 10000],

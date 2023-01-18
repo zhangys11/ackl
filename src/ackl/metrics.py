@@ -59,7 +59,7 @@ def kes(X, y, f):
     try:
         lda = LinearDiscriminantAnalysis()
         X_dr = lda.fit_transform(XK, y)
-    except:    
+    except:
         print('Exception in LDA. Try PLS.')
         try:
             pls = PLSRegression(n_components=len(XK), scale=False)
@@ -73,6 +73,7 @@ def kes(X, y, f):
 
     X_dr = np.nan_to_num(X_dr)
     return es_max(X_dr, y)
+
 
 def nmd(X, y, f, display=False):
     '''
@@ -404,18 +405,18 @@ def visualize_metric_dicts(dics, plot=True):
         html_str += '</tr>'
 
         if plot:
-            plt.figure(figsize=(20, 3))            
+            plt.figure(figsize=(20, 3))
             plt.bar(column_names, metrics, alpha=0.7,
-                    width=0.6, edgecolor='black', color='white', label = row)
+                    width=0.6, edgecolor='black', color='white', label=row)
             plt.bar(np.array(column_names)[best_metric_idxs], metrics[best_metric_idxs], alpha=0.7,
                     width=0.6, edgecolor='black', color='gold',
-                    label = "best kernels: " + best_kernel_names)
+                    label="best kernels: " + best_kernel_names)
             plt.xticks(rotation=40)
             plt.legend()
             plt.show()
 
             print(row + "\nbest kernels: " + best_kernel_names +
-            "\nbest value: " + str(best_metric_value))
+                  "\nbest value: " + str(best_metric_value))
 
     html_str += '</table>'
     # display(HTML( html_str ))
@@ -517,10 +518,11 @@ def time_cost_kernels(X, repeat=10, display=True):
         plt.show()
 
     dct_mu = {}
-    for k,v in zip(x, y.mean(axis = 1)):
+    for k, v in zip(x, y.mean(axis=1)):
         dct_mu[k] = v
 
     return dct_mu
+
 
 def plot_components_2d(X, y, labels=None, use_markers=False, ax=None, legends=None, tags=None):
     '''
