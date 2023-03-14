@@ -2,7 +2,16 @@
 
 Analytical Chemisty Kernels Library
 
-# Install (CodeOcean Ubuntu Env Setup)
+### PyPI (Python Package Index) repository
+
+https://pypi.org/project/ackl/ 
+
+### Reproducible Code-Ocean capsule
+
+https://doi.org/10.24433/CO.4614220.v1
+
+
+# Install (Ubuntu Env Setup)
 
 ```
 !apt-get install r-base r-base-dev ffmpeg libsm6 libxext6 
@@ -23,15 +32,22 @@ Rscript -e 'install.packages("ECoL")'
 
 # Use
 
-## Kernel Response Patterns
+### Kernel Response Patterns
 
 ```
 import ackl.metrics
 ackl.metrics.linear_response_pattern(20)
 ```
 
-## Run Kernels on Target Dataset
+### Run Kernels on Target Dataset
 
 ```
 dics = ackl.metrics.preview_kernels(X, y,embed_title = False)
+```
+
+Show the result as HTML table and bar charts: 
+
+```
+html_str = ackl.metrics.visualize_metric_dicts(dics, plot = True)
+display(HTML( html_str ))
 ```
