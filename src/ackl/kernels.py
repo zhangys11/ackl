@@ -798,7 +798,10 @@ class ANOVA(Kernel):
 
 
 def default_wavelet(x):
-    return np.cos(1.75*x)*np.exp(-x**2/2)
+    '''
+    Default wavelet is the morlet wavelet.
+    '''
+    return np.cos(5*x)*np.exp(-x**2/2) # 1.75
 
 
 class Wavelet(Kernel):
