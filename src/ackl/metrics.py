@@ -1,3 +1,5 @@
+import os
+import sys
 import math
 import timeit
 import numpy as np
@@ -11,10 +13,18 @@ from sklearn.decomposition import PCA
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from cla.metrics import get_metrics, metric_polarity_dict, es_max
-from .kernels import kernel_names, kernel_hparams, kernel_formulas, \
+
+if __package__:
+    from .kernels import kernel_names, kernel_hparams, kernel_formulas, \
     kernel_fullnames, kernel_dict, kernel_hparas_divide_n, \
     cosine_kernel
-
+else:
+    ROOT_DIR = os.path.dirname(__file__)
+    if ROOT_DIR not in sys.path:
+        sys.path.append(ROOT_DIR)
+    from kernels import kernel_names, kernel_hparams, kernel_formulas, \
+    kernel_fullnames, kernel_dict, kernel_hparas_divide_n, \
+    cosine_kernel
 
 def acc(X, y, f):
     '''
@@ -184,7 +194,9 @@ def linear_response_pattern(n=10, dim=1, cmap='gray'):
 
 
 def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
-                    scale=False, metrics=True, logplot=False, scatterplot=True, embed_title=True):
+                    scale=False, metrics=True, logplot=False, 
+                    scatterplot=True, embed_title=True, 
+                    selected_kernel_names=None):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
     Each kernel uses their own default/empirical paramters.    
@@ -202,11 +214,13 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
     hyper_param_optimizer : which optimizer to optimize the hyper parameters for each kernel. 
         For real-world dataset, use kes by default. For toy dataset, set None to disable optimizer.
     scale : whether do feature scaling
-    metrics : whether calculate clam metrics.
+    metrics : whether calculate classifiability metrics.
     logplot : whether to output the log-scale plot in parallel.
-    scatterplot : whether to ouptut the scatter plots after PCA / PLS, to check classifiability.
+    scatterplot : whether to ouptut the kernel heatmaps and the scatter plots after PCA / PLS, to check classifiability.
         The PLS tries to maximize the covariance between X and Y.
     embed_title : whether embed the title in the plots. If not, will generate the title in HTML.
+    selected_kernel_names : a list of kernel names to be process. 
+        If None or 'all', will use all kernels.
     '''
 
     all_dic_metrics = {}
@@ -221,7 +235,10 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
         y = [labels[0]] * np.sum(y == labels[0]) + \
             [labels[1]] * np.sum(y == labels[1])
 
-    for i, key in enumerate(kernel_names):
+    if selected_kernel_names is None or selected_kernel_names == 'all':
+        selected_kernel_names = kernel_names
+
+    for i, key in enumerate(selected_kernel_names):
         best_hparam = None
         best_metric = -np.inf
         title = str(i+1) + '. ' + \
@@ -248,24 +265,24 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
             metric_nmd = nmd(X, y, lambda x, y: kernel_dict[key](x, y, param))
 
         ######## plot after kernel transforms ########
-        _, ax = plt.subplots(1, 2, figsize=(12, 6))
-        ax[0].imshow(kns, cmap=cmap)
-        ax[0].set_axis_off()
-        if logplot:
-            ax[1].imshow(1+np.log(kns), cmap=cmap)
-            ax[1].set_axis_off()
-
-        plt.axis('off')
-        if embed_title:
-            plt.title(title + '\n' +
-                      kernel_formulas[key] + '\n' + "NMD = %.3g" % metric_nmd)
-        else:
-            # print(title)
-            IPython.display.display(IPython.display.HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<', '&lt;')
-                                                         .replace('>', '&gt;') + '</p><p>' + "NMD = %.3g" % metric_nmd + '</p>'))
-        plt.show()
-
+        
         if scatterplot:
+            _, ax = plt.subplots(1, 2, figsize=(12, 6))
+            ax[0].imshow(kns, cmap=cmap)
+            ax[0].set_axis_off()
+            if logplot:
+                ax[1].imshow(1+np.log(kns), cmap=cmap)
+                ax[1].set_axis_off()
+
+            plt.axis('off')
+            if embed_title:
+                plt.title(title + '\n' +
+                        kernel_formulas[key] + '\n' + "NMD = %.3g" % metric_nmd)
+            else:
+                # print(title)
+                IPython.display.display(IPython.display.HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<', '&lt;')
+                                                            .replace('>', '&gt;') + '</p><p>' + "NMD = %.3g" % metric_nmd + '</p>'))
+            plt.show()
 
             ######## scatter plot after PCA ########
             kns = np.nan_to_num(kns)
