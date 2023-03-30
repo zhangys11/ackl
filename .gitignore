@@ -153,3 +153,4 @@ cython_debug/
 
 *.pkl
 hj3.csv
+src/ackl/gui/*.csv

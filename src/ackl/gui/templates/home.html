@@ -223,22 +223,20 @@
                         <table class="table table-light">
                             <tbody>
                                 <tr>
-                                    <th>Mode 1 - Generate and analyze a sample dataset</th>
+                                    <th>Mode 1 - Use the built-in dataset (table salt dataset)</th>
                                 </tr>
 
                                 <tr>
 
                                     <td>
                                         1.
-                                        Drag the sliders to set parameters d (between-class distance) and nobs (number
-                                        of observations, or sample count).
+                                        Choose a kernel type.
                                     </td>
                                 </tr>
                                 <tr>
                                     <td>
                                         2.
-                                        Click "Submit". The server will generate a sample dataset with specified
-                                        parameters. The analysis report will be sent back to the web page via AJAX.
+                                        Click "Submit". The server will analyze the built-in dataset using the selected kernel.
                                     </td>
                                 </tr>
                                 <tr>
@@ -299,18 +297,14 @@
                     <p>The file should be in csv format. Example:</p>
 
                     <div>
-                        <pre># X1,X2,y
--2.100552557727890957e+00,-6.128650159277657106e-02,0
--1.159019414554130156e+00,5.913233466995695409e-01,0
-2.390116885110828981e-01,-2.151085116975746558e+00,0
--1.685507377135475160e+00,2.318535329405873868e-01,0
-1.665344297477713287e-01,-4.572513228039341571e-01,1
--1.167678798682300290e+00,5.999644077804777709e-01,1
-5.400378568542962832e-01,1.761797786765964546e-01,1
--1.721382016840375950e+00,8.207273112628025169e-01,1
+                        <pre>Label,X1,X2,X3
+1,190.99,153.095,81.492
+1,202.975,157.018,67.032
+0,244.156,198.137,118.996
+0,461.43,413.972,345.92                            
 </pre>
                     </div>
-                    Note: <i>1. Use comma delimiter. 2. Each column is a feature Xi. The last column is y. </i>
+                    Note: <i>1. Use comma delimiter. 2. The first column is Y(label). All others are X features. </i>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
