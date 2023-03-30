@@ -10,6 +10,7 @@
     <script src="/static/bootstrap.js"></script>
     <script src="/static/jquery.blockUI.js"></script>
     <script src="/static/jquery.form.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
 
     <script>
         $(function () {
@@ -117,53 +118,46 @@
 
                     <div class="card">
                         <h6 class="card-header">
-                            Analyze a Sample Dataset
-                        </h6>
-
+                            Analyze the built-in Dataset
+                        </h6>                        
+                        
                         <div class="card-body">
-
                             <h6>
-                                </span>
+                                Use the table salt Raman dataset.
+                                <br/>Select a kernel type
                             </h6>
-                            <div class="btn-group btn-group-justified">
-                                <div  class="row justify-content-between">
-
-                                        Kernel Type Choose: <span class="font-italic font-weight-bold">
-                                        <select name="name">
-                                            <option value="linear">linear</option>
-                                            <option value="poly">poly</option>
-                                            <option value="sigmoid">sigmoid</option>
-                                            <option value="sigmoid">gaussian</option>
-                                            <option value="sigmoid">laplace</option>
-                                            <option value="sigmoid">matern</option>
-                                            <option value="sigmoid">chi2</option>
-                                            <option value="sigmoid">achi2</option>
-                                            <option value="sigmoid">wave</option>
-                                            <option value="sigmoid">ess</option>
-                                            <option value="sigmoid">rq</option>
-                                            <option value="sigmoid">imq</option>
-                                            <option value="sigmoid">cauchy</option>
-                                            <option value="sigmoid">ts</option>
-                                            <option value="sigmoid">anova</option>
-                                            <option value="sigmoid">min</option>
-                                            <option value="sigmoid">minmax</option>
-                                            <option value="sigmoid">expmin</option>
-                                            <option value="sigmoid">ghi</option>
-                                            <option value="sigmoid">spline</option>
-                                            <option value="sigmoid">sorensen</option>
-                                            <option value="sigmoid">tanimoto</option>
-                                            <option value="sigmoid">fourier</option>
-                                            <option value="sigmoid">wavelet</option>
-                                            <option value="sigmoid">circular</option>
-                                            <option value="sigmoid">spherical</option>
-                                            <option value="sigmoid">log</option>
-                                            <option value="sigmoid">power</option>
-                                            <option value="sigmoid">bessel</option>
-                                            <option value="sigmoid">fejer</option>
-                                        </select>
-
-                                </div>
-                            </div>
+                            <select name="kernel_type" class="form-control">
+                                <option value="linear">linear</option>
+                                <option value="poly">poly</option>
+                                <option value="sigmoid">sigmoid</option>
+                                <option value="sigmoid">gaussian</option>
+                                <option value="sigmoid">laplace</option>
+                                <option value="sigmoid">matern</option>
+                                <option value="sigmoid">chi2</option>
+                                <option value="sigmoid">achi2</option>
+                                <option value="sigmoid">wave</option>
+                                <option value="sigmoid">ess</option>
+                                <option value="sigmoid">rq</option>
+                                <option value="sigmoid">imq</option>
+                                <option value="sigmoid">cauchy</option>
+                                <option value="sigmoid">ts</option>
+                                <option value="sigmoid">anova</option>
+                                <option value="sigmoid">min</option>
+                                <option value="sigmoid">minmax</option>
+                                <option value="sigmoid">expmin</option>
+                                <option value="sigmoid">ghi</option>
+                                <option value="sigmoid">spline</option>
+                                <option value="sigmoid">sorensen</option>
+                                <option value="sigmoid">tanimoto</option>
+                                <option value="sigmoid">fourier</option>
+                                <option value="sigmoid">wavelet</option>
+                                <option value="sigmoid">circular</option>
+                                <option value="sigmoid">spherical</option>
+                                <option value="sigmoid">log</option>
+                                <option value="sigmoid">power</option>
+                                <option value="sigmoid">bessel</option>
+                                <option value="sigmoid">fejer</option>
+                            </select>
 
                             <br />
 
@@ -208,7 +202,7 @@
 
                 <hr />
                 <p>
-                    © cla.gui - A web wrapper for cla.metrics (oo@zju.edu.cn)
+                    © ackl.gui (oo@zju.edu.cn)
                 </p>
             </div>
             <div class="col-6">
