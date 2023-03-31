@@ -13,6 +13,7 @@ from sklearn.decomposition import PCA
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from cla.metrics import get_metrics, metric_polarity_dict, es_max
+from cla.vis.plt2base64 import plt2html
 
 if __package__:
     from .kernels import kernel_names, kernel_hparams, kernel_formulas, \
@@ -195,7 +196,8 @@ def linear_response_pattern(n=10, dim=1, cmap='gray'):
 
 def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                     scale=False, metrics=True, logplot=False, 
-                    scatterplot=True, embed_title=True, 
+                    scatterplot=True, embed_title=True,
+                    output_html=False,
                     selected_kernel_names=None):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
@@ -224,6 +226,7 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
     '''
 
     all_dic_metrics = {}
+    html_str = ''
 
     if scale:
         X = MinMaxScaler().fit_transform(X)
@@ -266,7 +269,7 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
         ######## plot after kernel transforms ########
         
-        if scatterplot:
+        if scatterplot or output_html:
             _, ax = plt.subplots(1, 2, figsize=(12, 6))
             ax[0].imshow(kns, cmap=cmap)
             ax[0].set_axis_off()
@@ -282,7 +285,11 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                 # print(title)
                 IPython.display.display(IPython.display.HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<', '&lt;')
                                                             .replace('>', '&gt;') + '</p><p>' + "NMD = %.3g" % metric_nmd + '</p>'))
-            plt.show()
+            if output_html:
+                html_str += plt2html(plt)
+                plt.close()
+            else:
+                plt.show()
 
             ######## scatter plot after PCA ########
             kns = np.nan_to_num(kns)
@@ -291,7 +298,12 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
             X_pca = np.nan_to_num(X_pca)
             plot_components_2d(X_pca, y)
             plt.title('PCA')
-            plt.show()
+
+            if output_html:
+                html_str += plt2html(plt)
+                plt.close()
+            else:
+                plt.show()
 
             ######## scatter plot after LDA ########
 
@@ -308,11 +320,18 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                 # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
                 plt.title(
                     'LDA (ACC = ' + str(np.round(lda.score(kns, y), 3)) + ')')
-                plt.show()
+                
+                if output_html:
+                    html_str += plt2html(plt)
+                    plt.close()
+                else:
+                    plt.show()
+
             except Exception as e:
                 print('Exception : ', e)
                 # print('X_pls = ', X_pls)
                 # plt.title('PLS')
+                html_str += '<p>' + str(e) + '</p>'
 
             ######## scatter plot after PLS ########
 
@@ -345,11 +364,16 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                 # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
                 plt.title(
                     'PLS (R2 = ' + str(np.round(pls.score(kns, y), 3)) + ')')
-                plt.show()
+                if output_html:
+                    html_str += plt2html(plt)
+                    plt.close()
+                else:
+                    plt.show()
             except Exception as e:
                 print('Exception : ', e)
                 # print('X_pls = ', X_pls)
                 # plt.title('PLS')
+                html_str += '<p>' + str(e) + '</p>'
 
         ###### metrics ######
         if metrics:
@@ -359,7 +383,7 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
             dic_metrics['NMD'] = metric_nmd
             all_dic_metrics[key] = dic_metrics
 
-    return all_dic_metrics
+    return all_dic_metrics, html_str
 
 
 def visualize_metric_dicts(dics, plot=True):
@@ -374,7 +398,7 @@ def visualize_metric_dicts(dics, plot=True):
     row_names = []
     column_names = []
 
-    html_str = '<table><tr><th></th>'
+    html_str = '<table><tr><th>metric</th>'
 
     # use the 1st loop to get row and col names
     for kernel in dics:
@@ -384,7 +408,7 @@ def visualize_metric_dicts(dics, plot=True):
             if key not in row_names:
                 row_names.append(key)
 
-    html_str += '<th>best kernel(s)</th>'
+    html_str += '<th>best</th><th>chart</th>'
     html_str += '</tr>'
 
     # use the 2nd loop to fill in data
@@ -419,9 +443,9 @@ def visualize_metric_dicts(dics, plot=True):
 
         best_kernel_names = str(np.array(column_names)[best_metric_idxs])
         html_str += '<td>' + best_kernel_names + '</td>'
-        html_str += '</tr>'
+        
+        if len(column_names) > 1: # only need to draw bar chart when more than two kernels are compared
 
-        if plot:
             plt.figure(figsize=(20, 3))
             plt.bar(column_names, metrics, alpha=0.7,
                     width=0.6, edgecolor='black', color='white', label=row)
@@ -429,11 +453,17 @@ def visualize_metric_dicts(dics, plot=True):
                     width=0.6, edgecolor='black', color='gold',
                     label="best kernels: " + best_kernel_names)
             plt.xticks(rotation=40)
+            plt.title(row + "\nbest kernels: " + best_kernel_names +
+                    "\nbest value: " + str(best_metric_value))
             plt.legend()
-            plt.show()
 
-            print(row + "\nbest kernels: " + best_kernel_names +
-                  "\nbest value: " + str(best_metric_value))
+            if plot:
+                plt.show()
+            else:
+                html_str += '<td style="min-width:400px">' + plt2html(plt) + '</td>'
+                plt.close()
+
+        html_str += '</tr>'
 
     html_str += '</table>'
     # display(HTML( html_str ))

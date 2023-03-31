@@ -4,7 +4,6 @@ import uuid
 from flask import Flask, render_template, request
 from flaskwebgui import FlaskUI
 from qsi import io
-import numpy as np
 
 
 if __package__:
@@ -18,37 +17,25 @@ else:
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # limit to 50MB, to avoid 413 error.
 
-def analyze(csv, save_local=False):
-
-    # store html result into a local html file
-
-    if save_local:
-
-        fn = os.path.dirname(os.path.realpath(__file__)) + \
-            "/" + str(uuid.uuid4()) + ".html"
-
-        with open(fn, 'w') as f:
-            f.write(analyze_file(csv))
-
-        # fn is the local save path
-
-    return analyze_file(csv)  # return the html content
-
 @app.route("/", methods=['GET', 'POST'])
 def index():
     return render_template("home.html")
 
 
 @app.route("/submit", methods=['POST'])
-def run_ackl():
+def analyze():
     r = ''
     kernel_type = request.form['kernel_type']
     use_sample = request.form["use_sample"]
 
+    if kernel_type == 'all':
+        kernel_type = list(metrics.kernel_dict.keys())
+    else:
+        kernel_type = [kernel_type]
+
     if (use_sample == 'true' or use_sample is True):
         # path = "ackl/gui/static/sample.csv"
-        X, y, X_names, desc, labels = io.load_dataset('salt', x_range=list(range(400, 1000)), display=False)
-
+        X, y, X_names, desc, labels = io.load_dataset('salt', x_range=list(range(400, 1000)), display=False)        
     else:
         fn = os.path.dirname(os.path.realpath(
             __file__)) + "/" + str(uuid.uuid4()) + ".csv"
@@ -59,16 +46,34 @@ def run_ackl():
             return {'message': 'success', 'html': r}
 
         X, y, X_names, labels = io.open_dataset(fn)
-        print(X.shape, y.shape)
+        desc = fn
 
     try:
-        pkl = metrics.preview_kernels(X, y,metrics=True,
-                                        scatterplot=False,
-                                        selected_kernel_names= [kernel_type])
-        
-        r = metrics.visualize_metric_dicts(pkl, plot=False)
+        r += '<h6>Load dataset</h6>'
+        if len(X.shape) == 2:
+
+            if y is None:
+                r += io.draw_average(X, X_names, output_html=True)
+            else:
+                r += io.draw_class_average(X, y, X_names, labels, output_html=True)
+
+            r += io.scatter_plot(X, y, labels=labels, output_html=True)
+
+        r += '<p>' + desc + '</p><hr/>'
+        r += '<h6>Kernel Transformation</h6>'
+
+        dic, s = metrics.preview_kernels(X, y, scale = True,
+                                        metrics=True,
+                                        scatterplot=True,
+                                        logplot=True,
+                                        output_html= True,
+                                        selected_kernel_names = kernel_type)
+
+        r += s
+        r += metrics.visualize_metric_dicts(dic, plot=False)
+
     except Exception as e:
-        r = str(e)
+        r += '<b>' + str(e) + '</b>'
 
     return {'message': 'success', 'html': r}
 
