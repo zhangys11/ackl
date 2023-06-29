@@ -1,10 +1,8 @@
 # ackl
 
-Analytical Chemisty Kernels Library
+### Publication
 
-```
-Analytical chemistry kernel library for spectroscopic profiling data, Food Chemistry Advances, Volume 3, 2023, 100342, ISSN 2772-753X, https://doi.org/10.1016/j.focha.2023.100342.
-```
+    Analytical chemistry kernel library for spectroscopic profiling data, Food Chemistry Advances, Volume 3, 2023, 100342, ISSN 2772-753X, https://doi.org/10.1016/j.focha.2023.100342.
 
 ### PyPI (Python Package Index) repository
 

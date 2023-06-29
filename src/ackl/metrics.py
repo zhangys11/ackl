@@ -4,15 +4,16 @@ import math
 import timeit
 import numpy as np
 import matplotlib.pyplot as plt
-# import full name to avoid conflict with those display params
-import IPython.core.display
+import IPython.display
 
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from cla.metrics import get_metrics, metric_polarity_dict, es_max
+from sklearn.linear_model import LogisticRegressionCV
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.decomposition import PCA
+from cla.metrics import get_metrics, metric_polarity_dict, es_max, run_multiclass_clfs
 from cla.vis.plt2base64 import plt2html
 
 if __package__:
@@ -27,7 +28,7 @@ else:
     kernel_fullnames, kernel_dict, kernel_hparas_divide_n, \
     cosine_kernel
 
-def acc(X, y, f):
+def acc(X, y, f, verbose = True):
     '''
     Use classification accuracy as a metric for kernel performance
 
@@ -43,14 +44,14 @@ def acc(X, y, f):
     XK = np.nan_to_num(XK, copy=False, nan=0)  # replace NaN with 0
 
     try:
-        clf = LogisticRegressionCV().fit(XK, y)
+        clf = LogisticRegressionCV(max_iter=1000, multi_class='multinomial').fit(XK, y)
         return clf.score(XK, y)
     except Exception as e:
-        print(e)
+        if verbose:
+            print(e)
         return np.NaN
 
-
-def kes(X, y, f):
+def kes(X, y, f, verbose = True):
     '''
     kernel effect size
 
@@ -71,22 +72,24 @@ def kes(X, y, f):
         lda = LinearDiscriminantAnalysis()
         X_dr = lda.fit_transform(XK, y)
     except:
-        print('Exception in LDA. Try PLS.')
+        if verbose:
+            print('Exception in LDA. Try PLS.')
         try:
             pls = PLSRegression(n_components=len(XK), scale=False)
             X_dr = pls.fit(XK, y).transform(XK)
         except:
-            print('Exception in PLS. Use PCA instead.')
+            if verbose:
+                print('Exception in PLS. Use PCA instead.')
             try:
                 X_dr = PCA().fit_transform(XK)
             except:
                 X_dr = XK  # do without DR
 
     X_dr = np.nan_to_num(X_dr)
-    return es_max(X_dr, y)
+    return es_max(X_dr, y, verbose=verbose)
 
 
-def nmd(X, y, f, display=False):
+def nmd(X, y, f, display=False, verbose = True):
     '''
     Computes the normalized mean difference between the between-class and within-class matrices.
 
@@ -102,7 +105,11 @@ def nmd(X, y, f, display=False):
     '''
 
     labels = list(set(y))
-    assert len(labels) == 2
+    if len(labels) != 2:
+        if verbose:
+            print('NMD only supports binary classification. Return 0 by default.')
+        return 0
+    
     X1 = X[y == labels[0]]
     X2 = X[y == labels[1]]
 
@@ -190,15 +197,16 @@ def linear_response_pattern(n=10, dim=1, cmap='gray'):
         X = np.vstack((np.hstack((X, zeros)), np.hstack((zeros, X))))
         y = [0] * n + [1] * n
 
-    _ = preview_kernels(X, np.array(y), cmap, None,
-                        True, False, False, False, False)
+    _ = preview_kernels(X, np.array(y), cmap, hyper_param_optimizer = None,
+                        scale = True, calc_metrics = False,
+                        scatterplot = False, embed_title = False, verbose = False)
 
 
 def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
-                    scale=False, metrics=True, logplot=False, 
+                    scale=False, calc_metrics=True, logplot=False, 
                     scatterplot=True, embed_title=True,
                     output_html=False,
-                    selected_kernel_names=None):
+                    selected_kernel_names=None, verbose = True):
     '''
     Try various kernel types to evaluate the pattern after kernel-ops.  
     Each kernel uses their own default/empirical paramters.    
@@ -215,8 +223,9 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
         For small dataset, we recommend 'gray'. For complex dataset, we recommend 'viridis'.
     hyper_param_optimizer : which optimizer to optimize the hyper parameters for each kernel. 
         For real-world dataset, use kes by default. For toy dataset, set None to disable optimizer.
+        For multi-class dataset (y has more than 5 classes), use acc.
     scale : whether do feature scaling
-    metrics : whether calculate classifiability metrics.
+    calc_metrics : whether calculate classifiability metrics.
     logplot : whether to output the log-scale plot in parallel.
     scatterplot : whether to ouptut the kernel heatmaps and the scatter plots after PCA / PLS, to check classifiability.
         The PLS tries to maximize the covariance between X and Y.
@@ -230,6 +239,14 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
     if scale:
         X = MinMaxScaler().fit_transform(X)
+
+    if calc_metrics:
+        result_html = '<h3>0. no kernel</h3><p>Classification on original dataset</p>'
+        result_html += run_multiclass_clfs(X, y, show = False)
+        if output_html:
+            html_str += result_html
+        else:
+            IPython.display.display(IPython.display.HTML(result_html))
 
     # to be safe, perform a re-order
     if (y is not None and len(set(y)) == 2):
@@ -252,7 +269,7 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                 if key in kernel_hparas_divide_n:
                     param = param/X.shape[1]  # divide hparam by data dim
                 new_metric = hyper_param_optimizer(
-                    X, y, lambda x, y: kernel_dict[key](x, y, param))
+                    X, y, lambda x, y: kernel_dict[key](x, y, param), verbose = verbose)
                 if (new_metric > best_metric):
                     best_metric = new_metric
                     best_hparam = param
@@ -262,15 +279,17 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
         if hyper_param_optimizer is None or key not in kernel_hparams:
             kns = kernel_dict[key](X, X)
-            metric_nmd = nmd(X, y, lambda x, y: kernel_dict[key](x, y))
+            # metric_nmd = nmd(X, y, lambda x, y: kernel_dict[key](x, y), verbose = verbose)
         else:
             kns = kernel_dict[key](X, X, best_hparam)
-            metric_nmd = nmd(X, y, lambda x, y: kernel_dict[key](x, y, param))
+            # metric_nmd = nmd(X, y, lambda x, y: kernel_dict[key](x, y, param), verbose = verbose)
+
+        kns = np.nan_to_num(kns)
 
         ######## plot after kernel transforms ########
         
         if scatterplot or output_html:
-            _, ax = plt.subplots(1, 2, figsize=(12, 6))
+            _, ax = plt.subplots(1, 2, figsize=(round(len(set(y))/2.0) + 6, round(len(set(y))/4.0) + 3)) # figsize = (round(len(labels)/4.0) + 4, round(len(labels)/4.0) + 3)
             ax[0].imshow(kns, cmap=cmap)
             ax[0].set_axis_off()
             if logplot:
@@ -279,20 +298,18 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
             plt.axis('off')
             if embed_title:
-                plt.title(title + '\n' +
-                        kernel_formulas[key] + '\n' + "NMD = %.3g" % metric_nmd)
+                plt.title(title + '\n' + kernel_formulas[key] + '\n') # + "NMD = %.3g" % metric_nmd)
             else:
                 # print(title)
                 IPython.display.display(IPython.display.HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<', '&lt;')
-                                                            .replace('>', '&gt;') + '</p><p>' + "NMD = %.3g" % metric_nmd + '</p>'))
+                                                            .replace('>', '&gt;') + '</p>')) # <p>' + "NMD = %.3g" % metric_nmd + '</p>'
             if output_html:
                 html_str += plt2html(plt)
                 plt.close()
             else:
                 plt.show()
 
-            ######## scatter plot after PCA ########
-            kns = np.nan_to_num(kns)
+            ######## scatter plot after PCA ########            
             pca = PCA(n_components=2)  # keep the first 2 components
             X_pca = pca.fit_transform(kns)
             X_pca = np.nan_to_num(X_pca)
@@ -308,7 +325,6 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
             ######## scatter plot after LDA ########
 
             try:
-                kns = np.nan_to_num(kns)
                 lda = LinearDiscriminantAnalysis()
                 X_lda = lda.fit(kns, y).transform(kns)
                 X_lda = np.nan_to_num(X_lda)
@@ -328,7 +344,8 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                     plt.show()
 
             except Exception as e:
-                print('Exception : ', e)
+                if verbose:
+                    print('Exception : ', e)
                 # print('X_pls = ', X_pls)
                 # plt.title('PLS')
                 html_str += '<p>' + str(e) + '</p>'
@@ -370,17 +387,27 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                 else:
                     plt.show()
             except Exception as e:
-                print('Exception : ', e)
+                if verbose:
+                    print('Exception : ', e)
                 # print('X_pls = ', X_pls)
                 # plt.title('PLS')
                 html_str += '<p>' + str(e) + '</p>'
 
-        ###### metrics ######
-        if metrics:
+        ###### Classifiction after kernel transformation #######
+        if calc_metrics:
+            # result_html = '<h3>classification</h3>'
+            result_html = run_multiclass_clfs(kns, y, show = False)
+            if output_html:
+                html_str += result_html
+            else:
+                IPython.display.display(IPython.display.HTML(result_html))
+
+        ###### cla metrics ######
+        if calc_metrics:
             kns = np.nan_to_num(np.hstack((kns, np.array(y).reshape(-1, 1))),   # do nan filtering simultaneously for X and y
                                 nan=0, posinf=kns.max(), neginf=kns.min())
-            _, dic_metrics = get_metrics(kns[:, :-1], kns[:, -1].flatten())
-            dic_metrics['NMD'] = metric_nmd
+            _, dic_metrics = get_metrics(kns[:, :-1], kns[:, -1].flatten(), verbose = False)
+            # dic_metrics['NMD'] = metric_nmd
             all_dic_metrics[key] = dic_metrics
 
     return all_dic_metrics, html_str
@@ -403,7 +430,7 @@ def visualize_metric_dicts(dics, plot=True):
     # use the 1st loop to get row and col names
     for kernel in dics:
         column_names.append(kernel)
-        html_str += '<th>' + kernel + '</th>'
+        html_str += '<th>' + str(kernel) + '</th>'
         for key in dics[kernel]:
             if key not in row_names:
                 row_names.append(key)
@@ -571,7 +598,7 @@ def time_cost_kernels(X, repeat=10, display=True):
     return dct_mu
 
 
-def plot_components_2d(X, y, labels=None, use_markers=False, ax=None, legends=None, tags=None):
+def plot_components_2d(X, y, labels=None, use_markers=False, legends=None, tags=None):
     '''
     Copied from qsi.vis.plot_components_2d, to avoid package dependency.
     '''
@@ -580,19 +607,25 @@ def plot_components_2d(X, y, labels=None, use_markers=False, ax=None, legends=No
             'ERROR: X MUST HAVE AT LEAST 2 FEATURES/COLUMNS! SKIPPING plot_components_2d().')
         return
 
-    # Gray shades can be given as a string encoding a float in the 0-1 range
-    colors = ['0.9', '0.1', 'red', 'blue', 'black',
-              'orange', 'green', 'cyan', 'purple', 'gray']
-    markers = ['o', 's', '^', 'D', 'H', 'o', 's', '^', 'D',
-               'H', 'o', 's', '^', 'D', 'H', 'o', 's', '^', 'D', 'H']
-
-    if ax is None:
-        _, ax = plt.subplots()
-
     if y is None or len(y) == 0:
         labels = [0]  # only one class
     if labels is None:
         labels = set(y)
+
+    _, ax = plt.subplots(figsize = (round(len(labels)/4.0) + 4, round(len(labels)/4.0) + 3))
+
+    # Gray shades can be given as a string encoding a float in the 0-1 range
+    colors = ['0.9', '0.1', 'red', 'blue', 'green',
+              'orange', 'cyan', 'purple', 'gray']
+    if len(labels) > len(colors):
+        for i in range(len(labels) - len(colors) + 5):
+            colors.append('C' + str(i))
+
+    markers = ['o', 's', '^', 'D', 'H', 'o', 's', '^', 'D',
+               'H', 'o', 's', '^', 'D', 'H', 'o', 's', '^', 'D', 'H']
+    if len(labels) > len(markers):
+        for i in range(len(labels) - len(markers) + 5):
+            markers.append(np.random.choice(markers))
 
     i = 0
 
