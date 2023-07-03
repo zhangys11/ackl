@@ -44,7 +44,7 @@ ackl.metrics.linear_response_pattern(20)
 ### Run Kernels on Target Dataset
 
 ```
-dics = ackl.metrics.preview_kernels(X, y,embed_title = False)
+_, dics, _ = ackl.metrics.classify_with_kernels(X, y,embed_title = False)
 ```
 
 Show the result as HTML table and bar charts: 

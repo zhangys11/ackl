@@ -414,8 +414,8 @@ kernel_formulas = {
 # Some hparams are dynamic (based on data dim).
 # Not all kernels have tunable hyper-parameters.
 kernel_hparams = {
-    "poly": [1, 2, 3, 4],  # when d = 1, becomes a linear kernel
-    "gaussian": [0.1, 1, 3.33, 10, 60, 100, 300, 400],
+    "poly": [2, 3, 4],  # skip d = 1, as it degrades to a linear kernel
+    "gaussian": [0.1, 1, 3.33, 10, 60, 100, 300],
     "sigmoid": [0.01, 0.1, 1, 10],
     "laplace": [0.001, 0.01, 0.1, 1, 10, 30, 50],
     # "exp": alias of laplace

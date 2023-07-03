@@ -2,7 +2,9 @@ import os
 import sys
 import math
 import timeit
+from itertools import combinations
 import numpy as np
+import pickle
 import matplotlib.pyplot as plt
 import IPython.display
 
@@ -10,9 +12,9 @@ from sklearn.decomposition import PCA
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.decomposition import PCA
+from sklearn.model_selection import train_test_split
 from cla.metrics import get_metrics, metric_polarity_dict, es_max, run_multiclass_clfs
 from cla.vis.plt2base64 import plt2html
 
@@ -170,8 +172,8 @@ def binary_response_pattern(cmap='gray'):
     cmap : color map scheme
     '''
     X = np.array([0, 1]).reshape(-1, 1)
-    _ = preview_kernels(X, np.array(
-        [0, 1]), cmap, None, True, False, False, False, False)
+    _ = classify_with_kernels(X, np.array(
+        [0, 1]), cmap, None, scale=True, run_clfs=False, do_cla=False)
 
 
 def linear_response_pattern(n=10, dim=1, cmap='gray'):
@@ -197,18 +199,19 @@ def linear_response_pattern(n=10, dim=1, cmap='gray'):
         X = np.vstack((np.hstack((X, zeros)), np.hstack((zeros, X))))
         y = [0] * n + [1] * n
 
-    _ = preview_kernels(X, np.array(y), cmap, hyper_param_optimizer = None,
-                        scale = True, calc_metrics = False,
-                        scatterplot = False, embed_title = False, verbose = False)
+    _ = classify_with_kernels(X, np.array(y), cmap, hyper_param_optimizer = None,
+                        scale = True, run_clfs = False, do_cla = False,
+                        plots = True, embed_title = False, verbose = False)
 
 
-def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
-                    scale=False, calc_metrics=True, logplot=False, 
-                    scatterplot=True, embed_title=True,
+def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
+                    scale=False, run_clfs=True, do_cla = False,
+                    multi_kernels=[1], multi_kernel_topk=-1,
+                    logplot=False, plots=True, embed_title=False,
                     output_html=False,
                     selected_kernel_names=None, verbose = True):
     '''
-    Try various kernel types to evaluate the pattern after kernel-ops.  
+    Try various kernel types for classification task.  
     Each kernel uses their own default/empirical paramters.    
     In binary classification, because the first and last half samples belong to two classes respectively. 
     We want to get a contrasive pattern, i.e., (LT、RB) and （LB、RT）have blocks of different colors. 
@@ -225,27 +228,34 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
         For real-world dataset, use kes by default. For toy dataset, set None to disable optimizer.
         For multi-class dataset (y has more than 5 classes), use acc.
     scale : whether do feature scaling
-    calc_metrics : whether calculate classifiability metrics.
+    run_clfs : whether run multiple classfiers and show confusion matrices
+    multi_kernels : how many kernels to use. Default is [1].
+    multi_kernel_topk : the k best single kernels to use in multi-kernel combinations. Default is 5.
     logplot : whether to output the log-scale plot in parallel.
-    scatterplot : whether to ouptut the kernel heatmaps and the scatter plots after PCA / PLS, to check classifiability.
+    plots : whether to ouptut the kernel heatmaps and the scatter plots after PCA / PLS, to check classifiability.
         The PLS tries to maximize the covariance between X and Y.
     embed_title : whether embed the title in the plots. If not, will generate the title in HTML.
+    do_cla : whether to do classifiability analysis using the cla package.
     selected_kernel_names : a list of kernel names to be process. 
         If None or 'all', will use all kernels.
     '''
 
+    dic_test_accs = {}
     all_dic_metrics = {}
     html_str = ''
 
     if scale:
         X = MinMaxScaler().fit_transform(X)
+        print('perform min-max scaling')
 
-    if calc_metrics:
+    if run_clfs:
         result_html = '<h3>0. no kernel</h3><p>Classification on original dataset</p>'
-        result_html += run_multiclass_clfs(X, y, show = False)
+        dic, mc_html = run_multiclass_clfs(X, y, clfs=['LinearDiscriminantAnalysis()'], show = False)
+        dic_test_accs['no kernel'] = dic
+        result_html += mc_html
         if output_html:
             html_str += result_html
-        else:
+        if plots:
             IPython.display.display(IPython.display.HTML(result_html))
 
     # to be safe, perform a re-order
@@ -257,6 +267,8 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
     if selected_kernel_names is None or selected_kernel_names == 'all':
         selected_kernel_names = kernel_names
+
+    KX = {} # store the data matrix after each kernel
 
     for i, key in enumerate(selected_kernel_names):
         best_hparam = None
@@ -285,10 +297,11 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
             # metric_nmd = nmd(X, y, lambda x, y: kernel_dict[key](x, y, param), verbose = verbose)
 
         kns = np.nan_to_num(kns)
+        KX[key] = kns
 
         ######## plot after kernel transforms ########
         
-        if scatterplot or output_html:
+        if plots or output_html:
             _, ax = plt.subplots(1, 2, figsize=(round(len(set(y))/2.0) + 6, round(len(set(y))/4.0) + 3)) # figsize = (round(len(labels)/4.0) + 4, round(len(labels)/4.0) + 3)
             ax[0].imshow(kns, cmap=cmap)
             ax[0].set_axis_off()
@@ -301,8 +314,11 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                 plt.title(title + '\n' + kernel_formulas[key] + '\n') # + "NMD = %.3g" % metric_nmd)
             else:
                 # print(title)
-                IPython.display.display(IPython.display.HTML('<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<', '&lt;')
-                                                            .replace('>', '&gt;') + '</p>')) # <p>' + "NMD = %.3g" % metric_nmd + '</p>'
+                kernel_title = '<h3>' + title + '</h3>' + '<p>' + kernel_formulas[key].replace('<', '&lt;').replace('>', '&gt;') + '</p>'
+                if output_html:
+                    html_str += kernel_title
+                else:
+                    IPython.display.display(IPython.display.HTML(kernel_title)) # <p>' + "NMD = %.3g" % metric_nmd + '</p>'
             if output_html:
                 html_str += plt2html(plt)
                 plt.close()
@@ -321,21 +337,24 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                 plt.close()
             else:
                 plt.show()
-
+           
             ######## scatter plot after LDA ########
+
+            k_train, k_test, y_train, y_test = train_test_split(
+                    kns, y, test_size=0.3, random_state = 2, stratify=y)
 
             try:
                 lda = LinearDiscriminantAnalysis()
-                X_lda = lda.fit(kns, y).transform(kns)
+                X_lda = lda.fit(k_train, y_train).transform(k_test)
                 X_lda = np.nan_to_num(X_lda)
 
-                lda.score(kns, y)
+                lda.score(k_test, y_test)
                 if (X_lda.shape[1] == 1):
                     X_lda = np.hstack((X_lda, np.zeros((X_lda.shape[0], 1))))
-                plot_components_2d(X_lda, y)
+                plot_components_2d(X_lda, y_test)
                 # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
                 plt.title(
-                    'LDA (ACC = ' + str(np.round(lda.score(kns, y), 3)) + ')')
+                    'LDA (test acc = ' + str(np.round(lda.score(k_test, y_test), 3)) + ')')
                 
                 if output_html:
                     html_str += plt2html(plt)
@@ -352,72 +371,150 @@ def preview_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
             ######## scatter plot after PLS ########
 
-            try:
-                ''' # using CV
-                kns = np.nan_to_num(kns)
-                pls = PLSRegression(n_components=2, scale=False)
+            if len(set(y)) == 2: # skip PLS for multi-class cases
 
-                k_train, k_test, y_train, y_test = train_test_split(
-                    kns, y, test_size=0.3)
+                try:
+                    ''' # using CV
+                    kns = np.nan_to_num(kns)
+                    pls = PLSRegression(n_components=2, scale=False)
 
-                X_pls = pls.fit(k_train, y_train).transform(k_test)
-                X_pls = np.nan_to_num(X_pls)
+                    k_train, k_test, y_train, y_test = train_test_split(
+                        kns, y, test_size=0.3)
 
-                pls.score(k_test, y_test)
-                plot_components_2d(X_pls, y_test, legends=['C1', 'C2'])
-                # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
-                plt.title(
-                    'PLS (R2 = ' + str(np.round(pls.score(k_test, y_test), 3)) + ')')
-                plt.show()
-                '''
+                    X_pls = pls.fit(k_train, y_train).transform(k_test)
+                    X_pls = np.nan_to_num(X_pls)
 
-                kns = np.nan_to_num(kns)
-                pls = PLSRegression(n_components=2, scale=False)
-                X_pls = pls.fit(kns, y).transform(kns)
-                X_pls = np.nan_to_num(X_pls)
-
-                pls.score(kns, y)
-                plot_components_2d(X_pls, y)
-                # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
-                plt.title(
-                    'PLS (R2 = ' + str(np.round(pls.score(kns, y), 3)) + ')')
-                if output_html:
-                    html_str += plt2html(plt)
-                    plt.close()
-                else:
+                    pls.score(k_test, y_test)
+                    plot_components_2d(X_pls, y_test, legends=['C1', 'C2'])
+                    # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
+                    plt.title(
+                        'PLS (R2 = ' + str(np.round(pls.score(k_test, y_test), 3)) + ')')
                     plt.show()
-            except Exception as e:
-                if verbose:
-                    print('Exception : ', e)
-                # print('X_pls = ', X_pls)
-                # plt.title('PLS')
-                html_str += '<p>' + str(e) + '</p>'
+                    '''
+
+                    kns = np.nan_to_num(kns)
+                    pls = PLSRegression(n_components=2, scale=False)
+                    X_pls = pls.fit(kns, y).transform(kns)
+                    X_pls = np.nan_to_num(X_pls)
+
+                    pls.score(kns, y)
+                    plot_components_2d(X_pls, y)
+                    # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
+                    plt.title(
+                        'PLS (R2 = ' + str(np.round(pls.score(kns, y), 3)) + ')')
+                    if output_html:
+                        html_str += plt2html(plt)
+                        plt.close()
+                    else:
+                        plt.show()
+                except Exception as e:
+                    if verbose:
+                        print('Exception : ', e)
+                    # print('X_pls = ', X_pls)
+                    # plt.title('PLS')
+                    html_str += '<p>' + str(e) + '</p>'
 
         ###### Classifiction after kernel transformation #######
-        if calc_metrics:
+        if run_clfs:
             # result_html = '<h3>classification</h3>'
-            result_html = run_multiclass_clfs(kns, y, show = False)
+            dic, result_html = run_multiclass_clfs(kns, y, clfs=['LinearDiscriminantAnalysis()'], show = False)
+            dic_test_accs[key] = dic
             if output_html:
                 html_str += result_html
-            else:
+            if plots:
                 IPython.display.display(IPython.display.HTML(result_html))
 
         ###### cla metrics ######
-        if calc_metrics:
+        if do_cla: # disable for now
             kns = np.nan_to_num(np.hstack((kns, np.array(y).reshape(-1, 1))),   # do nan filtering simultaneously for X and y
                                 nan=0, posinf=kns.max(), neginf=kns.min())
-            _, dic_metrics = get_metrics(kns[:, :-1], kns[:, -1].flatten(), verbose = False)
+            _, dic_metrics = get_metrics(kns[:, :-1], kns[:, -1].flatten(), verbose = verbose)
             # dic_metrics['NMD'] = metric_nmd
             all_dic_metrics[key] = dic_metrics
 
-    return all_dic_metrics, html_str
+    pickle.dump((KX, dic_test_accs), open('single_kernels.pkl', 'wb'))
 
+    if run_clfs: # multi-kernel cases
+
+        # find top k kernels
+        best_KX = {}
+        best_top1s = {}
+        for k,v in dic_test_accs.items():
+            if k == 'no kernel':
+                continue
+            
+            best_top1 = 0
+            for kk, vv in v.items():
+                if best_top1 < vv[0]: # top-1 test acc
+                    best_top1 = vv[0]
+            best_top1s[k] = best_top1
+
+        keys = list(best_top1s.keys())
+        values = list(best_top1s.values())
+        sorted_value_index = np.argsort(values)[::-1]
+        sorted_dict = {keys[i]: values[i] for i in sorted_value_index}
+
+        print('Sorted single-kernel test accs: ', sorted_dict)
+
+        for k in sorted_dict: # sorted(best_top1s.items(),  key = lambda kv:(kv[1], kv[0]), reverse=True):
+            best_KX[k] = KX[k]
+            if multi_kernel_topk != -1 and len(best_KX) >= multi_kernel_topk:
+                break
+
+        for multi_kernel in multi_kernels:
+
+            if multi_kernel == 1: # single kernel case, skip
+                continue
+
+            for idx, ks in enumerate(combinations(best_KX, multi_kernel)):
+                combined = np.zeros((len(y),0))
+                mk_title = ''
+                for iidx, k in enumerate(ks):
+                    if iidx == 0:
+                        mk_title += k
+                    else:
+                        mk_title += ' + ' + k
+                    combined = np.hstack((combined, KX[k]))
+                
+                dic, result_html = run_multiclass_clfs(combined, y, clfs=['LinearDiscriminantAnalysis()'], show = False)
+                result_html = '<h3>' + str(multi_kernel) + '-kernel ' + str(idx+1) + '. ' + mk_title + '</h3>' + result_html
+                dic_test_accs[mk_title] = dic
+                if output_html:
+                    html_str += result_html
+                if plots:
+                    IPython.display.display(IPython.display.HTML(result_html))
+
+    return KX, dic_test_accs, all_dic_metrics, html_str
+
+def visualize_kernel_result_dict(dic_test_accs):
+    '''
+    Visualize the result dictionary returned by classify_with_kernels()
+    '''
+
+    top1_accs = []
+    top3_accs = []
+    top5_accs = []
+    html_str = '<table>'
+    for k, v in dic_test_accs.items():
+        accs = [str(round(x,3)) for x in list(v.values())[0]]
+        top1_accs.append(list(v.values())[0][0])
+        top3_accs.append(list(v.values())[0][1])
+        top5_accs.append(list(v.values())[0][2])
+        html_str += '<tr>' + '<td>' + k + '</td>' + '<td>' + accs[0] + '</td>' + '<td>' + accs[1] + '</td>' + '<td>' + accs[2] + '</td></tr>'
+
+    html_str += '<tr>' + '<td>best</td>' + '<td>' + \
+    str(round(np.max(top1_accs),3)) + '</td>' + '<td>' + \
+    str(round(np.max(top3_accs),3)) + '</td>' + '<td>' + \
+    str(round(np.max(top5_accs),3)) + '</td></tr>'
+
+    html_str += '</table>'
+    IPython.display.display(IPython.display.HTML(html_str))
 
 def visualize_metric_dicts(dics, plot=True):
     '''
     Example
     -------
-    dics = preview_kernels(X, y)
+    _, dics, _ = classify_with_kernels(X, y)
     html_str = generate_html_from_dicts(dics)
     display(HTML(html_str)) # use in jupyter notebook
     '''
@@ -514,8 +611,7 @@ def optimize_kernel_hparam(X, y, key, hparams=[], cmap=None):
         title = (kernel_fullnames[key] if key in kernel_fullnames else key) \
             + ('(' + format(h, '.2g') + ')')
         plt.imshow(kernel_dict[key](X, X, h), cmap=cmap)
-        metric_str = "NMD = %.3g" % nmd(X, y, lambda x, y: kernel_dict[key](x, y, h)) \
-            + "\tACC = %.3g" % acc(X, y, lambda x,
+        metric_str = "ACC = %.3g" % acc(X, y, lambda x,
                                    y: kernel_dict[key](x, y, h))
         plt.axis('off')
         plt.title(title + '\n' + kernel_formulas[key] + '\n' + metric_str)
@@ -548,8 +644,7 @@ def cosine_kernel_response_pattern(n=10, cmap='gray', logplot=False, embed_title
         ax[1].set_axis_off()
     plt.axis('off')
 
-    metric_str = "NMD = %.3g" % nmd(X, y, lambda x, y: kernel_dict['cosine'](x, y)) \
-        + "  ACC = %.3g" % acc(X, y, lambda x, y: kernel_dict['cosine'](x, y))
+    metric_str = "ACC = %.3g" % acc(X, y, lambda x, y: kernel_dict['cosine'](x, y))
 
     if embed_title:
         plt.title(kernel_fullnames['cosine'] + '\n' + kernel_formulas['cosine']

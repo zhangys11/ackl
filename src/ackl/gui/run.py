@@ -62,9 +62,10 @@ def analyze():
         r += '<p>' + desc + '</p><hr/>'
         r += '<h6>Kernel Transformation</h6>'
 
-        dic, s = metrics.preview_kernels(X, y, scale = True,
-                                        metrics=True,
-                                        scatterplot=True,
+        _, dic_test_accs, dic, s = metrics.classify_with_kernels(X, y, scale = True,
+                                        do_cla=True,
+                                        run_clfs=True,
+                                        plots=True,
                                         logplot=True,
                                         output_html= True,
                                         selected_kernel_names = kernel_type)
