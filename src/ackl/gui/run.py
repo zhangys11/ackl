@@ -64,7 +64,7 @@ def analyze():
 
         _, dic_test_accs, dic, s = metrics.classify_with_kernels(X, y, scale = True,
                                         do_cla=True,
-                                        run_clfs=True,
+                                        clfs='all', # ['LinearDiscriminantAnalysis()'],
                                         plots=True,
                                         logplot=True,
                                         output_html= True,

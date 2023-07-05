@@ -173,7 +173,7 @@ def binary_response_pattern(cmap='gray'):
     '''
     X = np.array([0, 1]).reshape(-1, 1)
     _ = classify_with_kernels(X, np.array(
-        [0, 1]), cmap, None, scale=True, run_clfs=False, do_cla=False)
+        [0, 1]), cmap, None, scale=True, clfs=[], do_cla=False)
 
 
 def linear_response_pattern(n=10, dim=1, cmap='gray'):
@@ -200,12 +200,12 @@ def linear_response_pattern(n=10, dim=1, cmap='gray'):
         y = [0] * n + [1] * n
 
     _ = classify_with_kernels(X, np.array(y), cmap, hyper_param_optimizer = None,
-                        scale = True, run_clfs = False, do_cla = False,
+                        scale = True, clfs = [], do_cla = False,
                         plots = True, embed_title = False, verbose = False)
 
 
 def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
-                    scale=False, run_clfs=True, do_cla = False,
+                    scale=False, clfs=['LinearDiscriminantAnalysis()'], do_cla = False,
                     multi_kernels=[1], multi_kernel_topk=-1,
                     logplot=False, plots=True, embed_title=False,
                     output_html=False,
@@ -228,7 +228,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
         For real-world dataset, use kes by default. For toy dataset, set None to disable optimizer.
         For multi-class dataset (y has more than 5 classes), use acc.
     scale : whether do feature scaling
-    run_clfs : whether run multiple classfiers and show confusion matrices
+    clfs : a list of multi-class classfiers. pass 'all' to use all available classifiers.
     multi_kernels : how many kernels to use. Default is [1].
     multi_kernel_topk : the k best single kernels to use in multi-kernel combinations. Default is 5.
     logplot : whether to output the log-scale plot in parallel.
@@ -248,9 +248,9 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
         X = MinMaxScaler().fit_transform(X)
         print('perform min-max scaling')
 
-    if run_clfs:
+    if clfs == 'all' or len(clfs) > 0:
         result_html = '<h3>0. no kernel</h3><p>Classification on original dataset</p>'
-        dic, mc_html = run_multiclass_clfs(X, y, clfs=['LinearDiscriminantAnalysis()'], show = False)
+        dic, mc_html = run_multiclass_clfs(X, y, clfs=clfs, show = False)
         dic_test_accs['no kernel'] = dic
         result_html += mc_html
         if output_html:
@@ -415,9 +415,9 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                     html_str += '<p>' + str(e) + '</p>'
 
         ###### Classifiction after kernel transformation #######
-        if run_clfs:
+        if clfs == 'all' or len(clfs) > 0:
             # result_html = '<h3>classification</h3>'
-            dic, result_html = run_multiclass_clfs(kns, y, clfs=['LinearDiscriminantAnalysis()'], show = False)
+            dic, result_html = run_multiclass_clfs(kns, y, clfs=clfs, show = False)
             dic_test_accs[key] = dic
             if output_html:
                 html_str += result_html
@@ -425,16 +425,16 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                 IPython.display.display(IPython.display.HTML(result_html))
 
         ###### cla metrics ######
-        if do_cla: # disable for now
+        if do_cla: # disable for now, keep just for reproduce historical results
             kns = np.nan_to_num(np.hstack((kns, np.array(y).reshape(-1, 1))),   # do nan filtering simultaneously for X and y
                                 nan=0, posinf=kns.max(), neginf=kns.min())
             _, dic_metrics = get_metrics(kns[:, :-1], kns[:, -1].flatten(), verbose = verbose)
             # dic_metrics['NMD'] = metric_nmd
             all_dic_metrics[key] = dic_metrics
 
-    pickle.dump((KX, dic_test_accs), open('single_kernels.pkl', 'wb'))
+    pickle.dump((KX, dic_test_accs, y), open('single_kernels.pkl', 'wb'))
 
-    if run_clfs: # multi-kernel cases
+    if clfs == 'all' or len(clfs) > 0: # multi-kernel cases
 
         # find top k kernels
         best_KX = {}
@@ -463,8 +463,8 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
         for multi_kernel in multi_kernels:
 
-            if multi_kernel == 1: # single kernel case, skip
-                continue
+            # if multi_kernel == 1: # single kernel case, skip
+            #     continue
 
             for idx, ks in enumerate(combinations(best_KX, multi_kernel)):
                 combined = np.zeros((len(y),0))
@@ -476,7 +476,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                         mk_title += ' + ' + k
                     combined = np.hstack((combined, KX[k]))
                 
-                dic, result_html = run_multiclass_clfs(combined, y, clfs=['LinearDiscriminantAnalysis()'], show = False)
+                dic, result_html = run_multiclass_clfs(combined, y, clfs=clfs, show = False)
                 result_html = '<h3>' + str(multi_kernel) + '-kernel ' + str(idx+1) + '. ' + mk_title + '</h3>' + result_html
                 dic_test_accs[mk_title] = dic
                 if output_html:
@@ -496,13 +496,14 @@ def visualize_kernel_result_dict(dic_test_accs):
     top5_accs = []
     html_str = '<table>'
     for k, v in dic_test_accs.items():
-        accs = [str(round(x,3)) for x in list(v.values())[0]]
-        top1_accs.append(list(v.values())[0][0])
-        top3_accs.append(list(v.values())[0][1])
-        top5_accs.append(list(v.values())[0][2])
-        html_str += '<tr>' + '<td>' + k + '</td>' + '<td>' + accs[0] + '</td>' + '<td>' + accs[1] + '</td>' + '<td>' + accs[2] + '</td></tr>'
+        for kk, vv in v.items():
+            accs = [str(round(x,3)) for x in vv]
+            top1_accs.append(vv[0])
+            top3_accs.append(vv[1])
+            top5_accs.append(vv[2])
+            html_str += '<tr>' + '<td>' + k + '</td>'  + '<td>' + kk + '</td>' + '<td>' + accs[0] + '</td>' + '<td>' + accs[1] + '</td>' + '<td>' + accs[2] + '</td></tr>'
 
-    html_str += '<tr>' + '<td>best</td>' + '<td>' + \
+    html_str += '<tr>' + '<td>best</td>' + '<td></td>' + '<td>' + \
     str(round(np.max(top1_accs),3)) + '</td>' + '<td>' + \
     str(round(np.max(top3_accs),3)) + '</td>' + '<td>' + \
     str(round(np.max(top5_accs),3)) + '</td></tr>'
