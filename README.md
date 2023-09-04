@@ -10,7 +10,7 @@ https://pypi.org/project/ackl/
 
 ### Reproducible Code-Ocean capsule
 
-https://doi.org/10.24433/CO.4614220.v1
+https://doi.org/10.24433/CO.4614220.v2
 
 
 # Install (Ubuntu Env Setup)
