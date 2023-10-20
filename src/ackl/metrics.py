@@ -250,7 +250,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
     if clfs == 'all' or len(clfs) > 0:
         result_html = '<h3>0. no kernel</h3><p>Classification on original dataset</p>'
-        dic, mc_html = run_multiclass_clfs(X, y, clfs=clfs, show = False)
+        dic, mc_html = run_multiclass_clfs(X, y, clfs=clfs, show = plots)
         dic_test_accs['no kernel'] = dic
         result_html += mc_html
         if output_html:
@@ -417,7 +417,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
         ###### Classifiction after kernel transformation #######
         if clfs == 'all' or len(clfs) > 0:
             # result_html = '<h3>classification</h3>'
-            dic, result_html = run_multiclass_clfs(kns, y, clfs=clfs, show = False)
+            dic, result_html = run_multiclass_clfs(kns, y, clfs=clfs, show = plots)
             dic_test_accs[key] = dic
             if output_html:
                 html_str += result_html
@@ -476,7 +476,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                         mk_title += ' + ' + k
                     combined = np.hstack((combined, KX[k]))
                 
-                dic, result_html = run_multiclass_clfs(combined, y, clfs=clfs, show = False)
+                dic, result_html = run_multiclass_clfs(combined, y, clfs=clfs, show = plots)
                 result_html = '<h3>' + str(multi_kernel) + '-kernel ' + str(idx+1) + '. ' + mk_title + '</h3>' + result_html
                 dic_test_accs[mk_title] = dic
                 if output_html:
