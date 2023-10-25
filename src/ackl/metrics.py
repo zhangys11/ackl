@@ -250,7 +250,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
     if clfs == 'all' or len(clfs) > 0:
         result_html = '<h3>0. no kernel</h3><p>Classification on original dataset</p>'
-        dic, mc_html = run_multiclass_clfs(X, y, clfs=clfs, show = plots)
+        dic, mc_html = run_multiclass_clfs(X, y, clfs=clfs, show = False)
         dic_test_accs['no kernel'] = dic
         result_html += mc_html
         if output_html:
@@ -321,53 +321,49 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                     IPython.display.display(IPython.display.HTML(kernel_title)) # <p>' + "NMD = %.3g" % metric_nmd + '</p>'
             if output_html:
                 html_str += plt2html(plt)
-                plt.close()
-            else:
-                plt.show()
+            plt.show()
 
-            ######## scatter plot after PCA ########            
-            pca = PCA(n_components=2)  # keep the first 2 components
-            X_pca = pca.fit_transform(kns)
-            X_pca = np.nan_to_num(X_pca)
-            plot_components_2d(X_pca, y)
-            plt.title('PCA')
+            if len(set(y)) <= 3: # disable PCA and LDA plots for more than 3 classes
 
-            if output_html:
-                html_str += plt2html(plt)
-                plt.close()
-            else:
-                plt.show()
-           
-            ######## scatter plot after LDA ########
+                ######## scatter plot after PCA ########            
+                pca = PCA(n_components=2)  # keep the first 2 components
+                X_pca = pca.fit_transform(kns)
+                X_pca = np.nan_to_num(X_pca)
+                plot_components_2d(X_pca, y)
+                plt.title('PCA')
 
-            k_train, k_test, y_train, y_test = train_test_split(
-                    kns, y, test_size=0.3, random_state = 2, stratify=y)
-
-            try:
-                lda = LinearDiscriminantAnalysis()
-                X_lda = lda.fit(k_train, y_train).transform(k_test)
-                X_lda = np.nan_to_num(X_lda)
-
-                lda.score(k_test, y_test)
-                if (X_lda.shape[1] == 1):
-                    X_lda = np.hstack((X_lda, np.zeros((X_lda.shape[0], 1))))
-                plot_components_2d(X_lda, y_test)
-                # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
-                plt.title(
-                    'LDA (test acc = ' + str(np.round(lda.score(k_test, y_test), 3)) + ')')
-                
                 if output_html:
                     html_str += plt2html(plt)
-                    plt.close()
-                else:
+                plt.show()
+
+                ######## scatter plot after LDA ########
+
+                k_train, k_test, y_train, y_test = train_test_split(
+                        kns, y, test_size=0.3, random_state = 2, stratify=y)
+
+                try:
+                    lda = LinearDiscriminantAnalysis()
+                    X_lda = lda.fit(k_train, y_train).transform(k_test)
+                    X_lda = np.nan_to_num(X_lda)
+
+                    lda.score(k_test, y_test)
+                    if (X_lda.shape[1] == 1):
+                        X_lda = np.hstack((X_lda, np.zeros((X_lda.shape[0], 1))))
+                    plot_components_2d(X_lda, y_test)
+                    # the coefficient of determination or R squared method is the proportion of the variance in the dependent variable that is predicted from the independent variable.
+                    plt.title(
+                        'LDA (test acc = ' + str(np.round(lda.score(k_test, y_test), 3)) + ')')
+                    
+                    if output_html:
+                        html_str += plt2html(plt)
                     plt.show()
 
-            except Exception as e:
-                if verbose:
-                    print('Exception : ', e)
-                # print('X_pls = ', X_pls)
-                # plt.title('PLS')
-                html_str += '<p>' + str(e) + '</p>'
+                except Exception as e:
+                    if verbose:
+                        print('Exception : ', e)
+                    # print('X_pls = ', X_pls)
+                    # plt.title('PLS')
+                    html_str += '<p>' + str(e) + '</p>'
 
             ######## scatter plot after PLS ########
 
@@ -404,9 +400,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                         'PLS (R2 = ' + str(np.round(pls.score(kns, y), 3)) + ')')
                     if output_html:
                         html_str += plt2html(plt)
-                        plt.close()
-                    else:
-                        plt.show()
+                    plt.show()
                 except Exception as e:
                     if verbose:
                         print('Exception : ', e)
@@ -421,8 +415,6 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
             dic_test_accs[key] = dic
             if output_html:
                 html_str += result_html
-            if plots:
-                IPython.display.display(IPython.display.HTML(result_html))
 
         ###### cla metrics ######
         if do_cla: # disable for now, keep just for reproduce historical results
@@ -475,14 +467,24 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                     else:
                         mk_title += ' + ' + k
                     combined = np.hstack((combined, KX[k]))
+
+                result_html = '<h3>' + str(multi_kernel) + '-kernel ' + str(idx+1) + '. ' + mk_title + '</h3>'                
+                IPython.display.display(IPython.display.HTML(result_html)) 
                 
-                dic, result_html = run_multiclass_clfs(combined, y, clfs=clfs, show = plots)
-                result_html = '<h3>' + str(multi_kernel) + '-kernel ' + str(idx+1) + '. ' + mk_title + '</h3>' + result_html
+                if plots or output_html:
+                    plt.figure(figsize=(round(len(set(y))/4.0)*len(ks) + 3, round(len(set(y))/4.0) + 3)) # figsize = (round(len(labels)/4.0) + 4, round(len(labels)/4.0) + 3)
+                    plt.imshow(combined, cmap=cmap)
+                    plt.axis('off')
+                    if output_html:
+                        html_str += plt2html(plt)
+                    plt.show()
+                
+                dic, result_html_mc = run_multiclass_clfs(combined, y, clfs=clfs, show = plots)
+                result_html += result_html_mc
                 dic_test_accs[mk_title] = dic
                 if output_html:
                     html_str += result_html
-                if plots:
-                    IPython.display.display(IPython.display.HTML(result_html))
+                    
 
     return KX, dic_test_accs, all_dic_metrics, html_str
 
