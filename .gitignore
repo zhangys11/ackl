@@ -155,3 +155,4 @@ cython_debug/
 hj3.csv
 src/ackl/gui/*.csv
 code_report multi-kernel grape.ipynb
+code_report multi-kernel grape.html

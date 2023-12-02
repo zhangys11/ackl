@@ -415,11 +415,12 @@ kernel_formulas = {
 # Not all kernels have tunable hyper-parameters.
 kernel_hparams = {
     "poly": [2, 3, 4],  # skip d = 1, as it degrades to a linear kernel
-    "gaussian": [0.1, 1, 3.33, 10, 60, 100, 300],
+    "gaussian": [0.1, 1, 3.33, 10, 60, 100, 300], # gamma
     "sigmoid": [0.01, 0.1, 1, 10],
     "laplace": [0.001, 0.01, 0.1, 1, 10, 30, 50],
     # "exp": alias of laplace
-    "chi2":  [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10, 100],
+    "chi2":  [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10, 100], # gamma - scaling param
+    "ts": [1, 2, 3], # 2 becomes cauchy
     "anova": [0.000001, 0.00001, 0.001, 0.1, 1, 10, 1000, 100000],
     "cauchy": [0.01, 0.1, 1, 10, 100, 1000, 10000],
     "power": [.00001, .0001, .001, .01, .1, 1],
