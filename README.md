@@ -32,6 +32,10 @@ set -e
 Rscript -e 'install.packages("ECoL")'
 ```
 
+# Compile
+
+python -m build
+
 # Use
 
 ### Kernel Response Patterns
