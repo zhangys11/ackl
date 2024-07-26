@@ -432,7 +432,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
         best_KX = {}
         best_top1s = {}
         for k,v in dic_test_accs.items():
-            if k == 'no kernel':
+            if k == 'no kernel' or not bool(v):
                 continue
             
             best_top1 = 0
@@ -469,9 +469,9 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                     combined = np.hstack((combined, KX[k]))
 
                 result_html = '<h3>' + str(multi_kernel) + '-kernel ' + str(idx+1) + '. ' + mk_title + '</h3>'                
-                IPython.display.display(IPython.display.HTML(result_html)) 
                 
                 if plots or output_html:
+                    IPython.display.display(IPython.display.HTML(result_html)) 
                     plt.figure(figsize=(round(len(set(y))/4.0)*len(ks) + 3, round(len(set(y))/4.0) + 3)) # figsize = (round(len(labels)/4.0) + 4, round(len(labels)/4.0) + 3)
                     plt.imshow(combined, cmap=cmap)
                     plt.axis('off')
@@ -484,8 +484,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                 dic_test_accs[mk_title] = dic
                 if output_html:
                     html_str += result_html
-                    
-
+                
     return KX, dic_test_accs, all_dic_metrics, html_str
 
 def visualize_kernel_result_dict(dic_test_accs):
