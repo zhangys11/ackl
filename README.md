@@ -34,7 +34,10 @@ Rscript -e 'install.packages("ECoL")'
 
 # Compile
 
-python -m build
+```
+python -m build --wheel  
+python -m pyc_wheel x.whl  [optional]
+```
 
 # Use
 

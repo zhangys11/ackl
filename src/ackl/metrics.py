@@ -229,7 +229,8 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
         For multi-class dataset (y has more than 5 classes), use acc.
     scale : whether do feature scaling
     clfs : a list of multi-class classfiers. pass 'all' to use all available classifiers.
-    multi_kernels : how many kernels to use. Default is [1].
+    multi_kernels : how many kernels to use for MKL combination. Default is [1].
+        If a string, e.g., "poly+gaussian+cosine+spline" or "poly,gaussian,cosine,spline", will use this specific MKL combination.
     multi_kernel_topk : the k best single kernels to use in multi-kernel combinations. Default is 5.
     logplot : whether to output the log-scale plot in parallel.
     plots : whether to ouptut the kernel heatmaps and the scatter plots after PCA / PLS, to check classifiability.
@@ -426,7 +427,7 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
 
     pickle.dump((KX, dic_test_accs, y), open('single_kernels.pkl', 'wb'))
 
-    if clfs == 'all' or len(clfs) > 0: # multi-kernel cases
+    if len(multi_kernels) > 0: # multi-kernel cases
 
         # find top k kernels
         best_KX = {}
@@ -452,6 +453,10 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
             best_KX[k] = KX[k]
             if multi_kernel_topk != -1 and len(best_KX) >= multi_kernel_topk:
                 break
+
+        if isinstance(multi_kernels, str): # process a specific MKL combination
+            ks = multi_kernels.replace("+",",").split(sep=",") # seperator can be + or ,
+            return classify_with_mkl(KX, y, ks, clfs=clfs, cmap=cmap, plots=plots, output_html=output_html)
 
         for multi_kernel in multi_kernels:
 
@@ -486,6 +491,33 @@ def classify_with_kernels(X, y, cmap=None, hyper_param_optimizer=kes,
                     html_str += result_html
                 
     return KX, dic_test_accs, all_dic_metrics, html_str
+
+def classify_with_mkl(KX, y, ks, clfs=['LinearDiscriminantAnalysis()'], cmap=None, plots=True, output_html=True):
+
+    combined = np.zeros((len(y),0))
+    mk_title = ''
+    for iidx, k in enumerate(ks):
+        if iidx == 0:
+            mk_title += k
+        else:
+            mk_title += ' + ' + k
+        combined = np.hstack((combined, KX[k]))
+
+    result_html = '<h3>' + mk_title + '</h3>'
+    
+    if plots or output_html:
+        IPython.display.display(IPython.display.HTML(result_html)) 
+        plt.figure(figsize=(round(len(set(y))/4.0)*len(ks) + 3, round(len(set(y))/4.0) + 3)) # figsize = (round(len(labels)/4.0) + 4, round(len(labels)/4.0) + 3)
+        plt.imshow(combined, cmap=cmap)
+        plt.axis('off')
+        if output_html:
+            result_html += plt2html(plt)
+        plt.show()
+    
+    _, dic, result_html_mc = run_multiclass_clfs(combined, y, clfs=clfs, show = plots)
+    result_html += result_html_mc
+    if output_html:
+        return result_html
 
 def visualize_kernel_result_dict(dic_test_accs):
     '''
