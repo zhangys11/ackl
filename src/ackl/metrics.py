@@ -519,39 +519,44 @@ def classify_with_mkl(KX, y, ks, clfs=['LinearDiscriminantAnalysis()'], cmap=Non
     if output_html:
         return result_html
 
-def visualize_kernel_result_dict(dic_test_accs):
+def visualize_acc_dict(dic_accs):
     '''
-    Visualize the result dictionary returned by classify_with_kernels()
+    Visualize the acc result dictionary returned by classify_with_kernels()
+
+    Return
+    ------
+    The best top-1 acc
+
+    Example
+    -------
+    _, test_acc_dic, _ = classify_with_kernels(X, y, ...)
+    visualize_metric_dicts(test_acc_dic) # use in jupyter notebook
     '''
 
     top1_accs = []
-    top3_accs = []
-    top5_accs = []
     html_str = '<table>'
     html_str += '<tr>' + '<th>kernel</th>'  + '<th>classifier</th>' + '<th>top-1 acc</th>' + '<th>top-3 acc</th>' + '<th>top-5 acc</th></tr>'
-    for k, v in dic_test_accs.items():
+    for k, v in dic_accs.items():
         for kk, vv in v.items():
             accs = [str(round(x,3)) for x in vv]
             top1_accs.append(vv[0])
-            top3_accs.append(vv[1])
-            top5_accs.append(vv[2])
-            html_str += '<tr>' + '<td>' + k + '</td>'  + '<td>' + kk + '</td>' + '<td>' + accs[0] + '</td>' + '<td>' + accs[1] + '</td>' + '<td>' + accs[2] + '</td></tr>'
-
+            html_str += '<tr>' + '<td>' + k + '</td>'  + '<td>' + kk + '</td>' + '<td>' + accs[0] + \
+            ('</td>' + '<td>' + accs[1] + '</td>' + '<td>' + accs[2] if len(accs)>2 else '</td><td></td><td>') + '</td></tr>'
+            
     html_str += '<tr>' + '<td>best</td>' + '<td></td>' + '<td>' + \
-    str(round(np.max(top1_accs),3)) + '</td>' + '<td>' + \
-    str(round(np.max(top3_accs),3)) + '</td>' + '<td>' + \
-    str(round(np.max(top5_accs),3)) + '</td></tr>'
+    str(round(np.max(top1_accs),3)) + '</td></tr>'
 
     html_str += '</table>'
     IPython.display.display(IPython.display.HTML(html_str))
 
-def visualize_metric_dicts(dics, plot=True):
+    return round(np.max(top1_accs),3)
+
+def visualize_cla_dicts(dics, plot=True):
     '''
     Example
     -------
-    _, dics, _ = classify_with_kernels(X, y)
-    html_str = generate_html_from_dicts(dics)
-    display(HTML(html_str)) # use in jupyter notebook
+    _, _, dics, _ = classify_with_kernels(X, y, cla = True)
+    visualize_metric_dicts(dicts) # use in jupyter notebook
     '''
 
     row_names = []
@@ -625,7 +630,7 @@ def visualize_metric_dicts(dics, plot=True):
         html_str += '</tr>'
 
     html_str += '</table>'
-    # display(HTML( html_str ))
+    IPython.display.display(IPython.display.HTML(html_str))
 
     return html_str
 
