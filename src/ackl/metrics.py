@@ -13,7 +13,6 @@ from sklearn.cross_decomposition import PLSRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.preprocessing import MinMaxScaler
-from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from cla.metrics import get_metrics, metric_polarity_dict, es_max, run_multiclass_clfs
 from cla.vis.plt2base64 import plt2html
@@ -51,7 +50,7 @@ def acc(X, y, f, verbose = True):
     except Exception as e:
         if verbose:
             print(e)
-        return np.NaN
+        return np.nan
 
 def kes(X, y, f, verbose = True):
     '''
@@ -108,9 +107,9 @@ def nmd(X, y, f, display=False, verbose = True):
 
     labels = list(set(y))
     if len(labels) != 2:
-        if verbose:
-            print('NMD only supports binary classification. Return 0 by default.')
-        return 0
+        import warnings
+        warnings.warn('NMD only supports binary classification. Returning NaN.')
+        return np.nan
     
     X1 = X[y == labels[0]]
     X2 = X[y == labels[1]]
@@ -529,8 +528,8 @@ def visualize_acc_dict(dic_accs):
 
     Example
     -------
-    _, test_acc_dic, _ = classify_with_kernels(X, y, ...)
-    visualize_metric_dicts(test_acc_dic) # use in jupyter notebook
+    _, test_acc_dic, _, _ = classify_with_kernels(X, y, ...)
+    visualize_acc_dict(test_acc_dic) # use in jupyter notebook
     '''
 
     top1_accs = []
@@ -555,8 +554,8 @@ def visualize_cla_dicts(dics, plot=True):
     '''
     Example
     -------
-    _, _, dics, _ = classify_with_kernels(X, y, cla = True)
-    visualize_metric_dicts(dicts) # use in jupyter notebook
+    _, _, dics, _ = classify_with_kernels(X, y, do_cla = True)
+    visualize_cla_dicts(dics) # use in jupyter notebook
     '''
 
     row_names = []
@@ -664,7 +663,7 @@ def cosine_kernel_response_pattern(n=10, cmap='gray', logplot=False, embed_title
     We use equal-angle-interval input. While for other kernels, we use equal-interval input. 
     '''
 
-    comment = 'Unlike other kernels, we use equal-angle-interval (e.g., $ (i/n)*\pi $) input for the cosine kernel.'
+    comment = 'Unlike other kernels, we use equal-angle-interval (e.g., $ (i/n)*\\pi $) input for the cosine kernel.'
     X = []
     for i in range(n):
         theta = math.pi / n * i

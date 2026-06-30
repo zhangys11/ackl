@@ -7,7 +7,7 @@ from cmath import pi
 import math
 from abc import abstractmethod, ABCMeta
 from scipy.sparse import lil_matrix
-from scipy.special import jv
+from scipy.special import jv, kv
 import numpy.matlib as matlib
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity, rbf_kernel, \
@@ -86,8 +86,10 @@ def spline_kernel(x, y, k=10, flavor=1):
     '''
 
     if k is not None:
-        k = min(k, x.shape[1])
-        x = PCA(k).fit_transform(x)
+        k = min(k, x.shape[1], y.shape[1])
+        pca = PCA(k).fit(np.vstack((x, y)))
+        x = pca.transform(x)
+        y = pca.transform(y)
 
     if flavor == 2:
         return Spline()(x, y)
@@ -108,13 +110,12 @@ def sorensen_kernel(x, y):
 
 
 def tanimoto_kernel(x, y):
-    M = np.zeros((len(x), len(y)))
-    for idx1, x1 in enumerate(x):
-        for idx2, x2 in enumerate(y):
-            p = np.dot(x1, x2)
-            M[idx1, idx2] = p / (np.linalg.norm(x1)**2 +
-                                 np.linalg.norm(x2)**2 - p)
-    return M
+    norm1 = (x ** 2).sum(axis=1).reshape(-1, 1)
+    norm2 = (y ** 2).sum(axis=1).reshape(1, -1)
+    prod = np.dot(x, y.T)
+    denom = norm1 + norm2 - prod
+    denom = np.where(denom == 0, 1e-15, denom)
+    return prod / denom
 
 
 def min_kernel(x, y):
@@ -130,13 +131,9 @@ def expmin_kernel(x, y, a=1):
     exponential min kernel.
     K(x,y) = exp(-a min (|x-y|,|x+y|))^2
     '''
-    M = np.zeros((len(x), len(y)))
-    for idx1, x1 in enumerate(x):
-        for idx2, x2 in enumerate(y):
-            # print(np.linalg.norm(x1-x2) , np.linalg.norm(x1+x2))
-            M[idx1, idx2] = math.exp(-a * (min(np.linalg.norm(x1-x2),
-                                     np.linalg.norm(x1+x2)) ** 2))
-
+    D_sub = np.sqrt(euclidean_dist_matrix(x, y))
+    D_add = np.sqrt(euclidean_dist_matrix(x, -y))
+    M = np.exp(-a * np.minimum(D_sub, D_add) ** 2)
     return M
 
 
@@ -149,12 +146,12 @@ def ghi_kernel(x, y, alpha=1):
 
 def fourier_kernel(x, y, q=0.1):
 
-    M = np.zeros((len(x), len(y)))
-    for idx1, x1 in enumerate(x):
-        for idx2, x2 in enumerate(y):
-            d = np.linalg.norm(x1-x2)
-            M[idx1, idx2] = (1-q**2) / (2*(1-2*q*math.cos(d)+q**2))
-    return M
+    kernel = np.ones((x.shape[0], y.shape[0]))
+    for d in range(x.shape[1]):
+        col1 = x[:, d].reshape(-1, 1)
+        col2 = y[:, d].reshape(-1, 1)
+        kernel *= (1 - q ** 2) / (2 * (1 - 2 * q * np.cos(col1 - col2.T) + q ** 2))
+    return kernel
 
 
 def fourier_kernel_v2(x, y, q=0.1):
@@ -183,8 +180,8 @@ def power_kernel(x, y, d=2):
 
 
 def bessel_kernel(x, y, v=0, s=1):
-    # / euclidean_dist_matrix(x,y)
-    return jv(v+1, -s * euclidean_dist_matrix(x, y))
+    D = np.sqrt(euclidean_dist_matrix(x, y))
+    return jv(v + 1, -s * D)
 
 
 def matern_kernel(x, y, v=0.5, s=1):
@@ -199,8 +196,10 @@ def matern_kernel(x, y, v=0.5, s=1):
     '''
     if v is None:
         v = 0.5
-    z = math.sqrt(2*v) / s * euclidean_dist_matrix(x, y)
-    return 1/(math.gamma(v) * 2**(v-1)) * (z**v) * mod_bessel(z)
+    D = euclidean_dist_matrix(x, y)
+    z = np.sqrt(2 * v) / s * np.sqrt(D)
+    z = np.maximum(z, 1e-15)
+    return 1 / (math.gamma(v) * 2 ** (v - 1)) * (z ** v) * kv(v, z)
 
 
 def mod_bessel(x):
@@ -219,13 +218,8 @@ def ess_kernel(x, y, p=1, s=1):
     if s is None:
         s = 1
 
-    M = np.zeros((len(x), len(y)))
-    for idx1, x1 in enumerate(x):
-        for idx2, x2 in enumerate(y):
-            M[idx1, idx2] = math.exp(-2*math.sin(pi *
-                                     np.linalg.norm(x1-x2)/p)/(s**2))
-
-    return M
+    D = np.sqrt(euclidean_dist_matrix(x, y))
+    return np.exp(-2 * np.sin(pi * D / p) / (s ** 2))
 
 
 def fejer_kernel(x, y, k=10):
@@ -237,31 +231,24 @@ def fejer_kernel(x, y, k=10):
     if k is None:
         k = 10
 
-    M = np.zeros((len(x), len(y)))
-    for idx1, x1 in enumerate(x):
-        for idx2, x2 in enumerate(y):
-            if math.cos(np.linalg.norm(x1-x2)) == 1:
-                M[idx1, idx2] = k  # handle divided-by-0 error
-            else:
-                M[idx1, idx2] = (1-math.cos(k * np.linalg.norm(x1-x2))) / \
-                    (1-math.cos(np.linalg.norm(x1-x2))) / k
+    D = np.sqrt(euclidean_dist_matrix(x, y))
+    cosD = np.cos(D)
+    M = np.zeros_like(D)
+    mask = np.isclose(cosD, 1.0)
+    M[mask] = k
+    M[~mask] = (1 - np.cos(k * D[~mask])) / (1 - cosD[~mask]) / k
     return M
-    # return ( 1-np.cos(k*euclidean_dist_matrix(x,y)) ) / ( 1-np.cos(euclidean_dist_matrix(x,y)) ) / k
 
 
 def circular_kernel(x, y, s=2):
     if s is None:
         s = 2
 
-    M = np.zeros((len(x), len(y)))
-    for idx1, x1 in enumerate(x):
-        for idx2, x2 in enumerate(y):
-            d = np.linalg.norm(x1-x2)
-            if d < s:
-                M[idx1, idx2] = 2/math.pi * math.acos(d/s) - \
-                    2/math.pi * d/s * math.sqrt(1-(d/s)**2)
-            else:
-                M[idx1, idx2] = 0
+    D = np.sqrt(euclidean_dist_matrix(x, y))
+    M = np.zeros_like(D)
+    mask = D < s
+    r = D[mask] / s
+    M[mask] = 2 / math.pi * np.arccos(r) - 2 / math.pi * r * np.sqrt(1 - r ** 2)
     return M
 
 
@@ -269,14 +256,11 @@ def spherical_kernel(x, y, s=1):
     if s is None:
         s = 1
 
-    M = np.zeros((len(x), len(y)))
-    for idx1, x1 in enumerate(x):
-        for idx2, x2 in enumerate(y):
-            d = np.linalg.norm(x1-x2)
-            if d < s:
-                M[idx1, idx2] = 1 - 3/2*d/s + 1/2*(d/s)**3
-            else:
-                M[idx1, idx2] = 0
+    D = np.sqrt(euclidean_dist_matrix(x, y))
+    M = np.zeros_like(D)
+    mask = D < s
+    r = D[mask] / s
+    M[mask] = 1 - 3 / 2 * r + 1 / 2 * r ** 3
     return M
 
 
@@ -289,13 +273,11 @@ def wave_kernel(x, y, s=3.14):
         s = 3.14
 
     M = np.zeros((len(x), len(y)))
-    for idx1, x1 in enumerate(x):
-        for idx2, x2 in enumerate(y):
-            d = np.linalg.norm(x1-x2)
-            if d == 0:
-                M[idx1, idx2] = s/d * math.sin(d/s)
-            else:
-                M[idx1, idx2] = 1
+    D = euclidean_dist_matrix(x, y)
+    dmat = np.sqrt(D)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        M = np.where(dmat == 0, 1.0, s / dmat * np.sin(dmat / s))
+    M = np.nan_to_num(M, nan=0.0)
     return M
 
 
@@ -304,18 +286,15 @@ def cosine_kernel(x, y):
     This is a self-implemented version, which uses a different 
     normalization from sklearn.metrics.pairwise.cosine_similarity().
     '''
-    # return cosine_similarity(x,y)
-
     scaler = MinMaxScaler((1, 100))
     x = scaler.fit_transform(x)
     y = scaler.fit_transform(y)
 
-    M = np.zeros((len(x), len(y)))
-    for idx1, x1 in enumerate(x):
-        for idx2, x2 in enumerate(y):
-            M[idx1, idx2] = np.dot(x1, x2) / \
-                np.linalg.norm(x1) / np.linalg.norm(x2)
-    return M
+    n1 = np.linalg.norm(x, axis=1).reshape(-1, 1)
+    n2 = np.linalg.norm(y, axis=1).reshape(1, -1)
+    denom = n1 * n2
+    denom = np.where(denom == 0, 1e-15, denom)
+    return np.dot(x, y.T) / denom
 
 
 kernel_fullnames = {
@@ -390,7 +369,7 @@ kernel_formulas = {
     "ts": r"$k(x, y) = 1 / (1 + ||x - y||^d)$",
     "anova": r"$k(x, y) = \sum_i exp( - \sigma * (x_i - y_i)^2 )^d$",
     "wavelet": r"$k(x, y) = \prod_i { h( (x_i-y_i)/a )}$",
-    "fourier": r"$k(x, y) = \prod_i { (1-q^2)/(2(1-2q cos(||x - y||)+q^2)) }$",
+    "fourier": r"$k(x, y) = \prod_i { (1-q^2)/(2(1-2q \cos (x_i - y_i)+q^2)) }$",
     "circular": r"$k(x, y) = \frac{2}{\pi} \arccos ( \frac{ | x-y | }{\sigma}) - \frac{2}{\pi} \frac{ | x-y | }{\sigma} \sqrt{1 - {\left( \frac{ | x-y |}{\sigma} \right)}^2 } , if | x-y | < \sigma$ , 0 otherwise.",
     "spherical": r"$k(x, y) = 1 - \frac{3}{2} \frac{| x-y |}{\sigma} + \frac{1}{2} \left( \frac{ | x-y |}{\sigma} \right)^3$",
     "tanimoto": r"$k(x, y) = <x, y> / (||x||^2 + ||y||^2 - <x, y>)$",
@@ -447,11 +426,10 @@ original authors: Wojciech Marian Czarnecki and Katarzyna Janocha
 """
 
 
-class Kernel(object):
+class Kernel(object, metaclass=ABCMeta):
     """
     Base, abstract kernel class
     """
-    __metaclass__ = ABCMeta
 
     def __call__(self, data_1, data_2):
         return self._compute(data_1, data_2)
@@ -608,7 +586,7 @@ def euclidean_dist_matrix(data_1, data_2):
     """
     norms_1 = (data_1 ** 2).sum(axis=1)
     norms_2 = (data_2 ** 2).sum(axis=1)
-    return np.abs(norms_1.reshape(-1, 1) + norms_2 - 2 * np.dot(data_1, data_2.T))
+    return np.maximum(norms_1.reshape(-1, 1) + norms_2 - 2 * np.dot(data_1, data_2.T), 0)
 
 
 """
@@ -889,7 +867,9 @@ class Tanimoto(Kernel):
         norm_1 = (data_1 ** 2).sum(axis=1).reshape(data_1.shape[0], 1)
         norm_2 = (data_2 ** 2).sum(axis=1).reshape(data_2.shape[0], 1)
         prod = data_1.dot(data_2.T)
-        return prod / (norm_1 + norm_2.T - prod)
+        denom = norm_1 + norm_2.T - prod
+        denom = np.where(denom == 0, 1e-15, denom)
+        return prod / denom
 
     def dim(self):
         return None
@@ -913,17 +893,18 @@ class Sorensen(Kernel):
         norm_1 = (data_1 ** 2).sum(axis=1).reshape(data_1.shape[0], 1)
         norm_2 = (data_2 ** 2).sum(axis=1).reshape(data_2.shape[0], 1)
         prod = data_1.dot(data_2.T)
-        return 2 * prod / (norm_1 + norm_2.T)
+        denom = norm_1 + norm_2.T
+        denom = np.where(denom == 0, 1e-15, denom)
+        return 2 * prod / denom
 
     def dim(self):
         return None
 
 
-class PositiveKernel(Kernel):
+class PositiveKernel(Kernel, metaclass=ABCMeta):
     """
     Defines kernels which can be only used with positive values
     """
-    __metaclass__ = ABCMeta
 
 
 class AdditiveChi2(PositiveKernel):
@@ -1115,11 +1096,10 @@ class Spline(PositiveKernel):
         return None
 
 
-class ConditionalyPositiveDefiniteKernel(Kernel):
+class ConditionalyPositiveDefiniteKernel(Kernel, metaclass=ABCMeta):
     """
     Defines kernels which are only CPD
     """
-    __metaclass__ = ABCMeta
 
 
 class Log(ConditionalyPositiveDefiniteKernel):
@@ -1133,7 +1113,8 @@ class Log(ConditionalyPositiveDefiniteKernel):
         self._d = d
 
     def _compute(self, data_1, data_2):
-        return -np.log(euclidean_dist_matrix(data_1, data_2) ** self._d / 2. + 1)
+        D = np.sqrt(euclidean_dist_matrix(data_1, data_2))
+        return -np.log(D ** self._d + 1)
 
     def dim(self):
         return None
@@ -1155,7 +1136,8 @@ class Power(ConditionalyPositiveDefiniteKernel):
         self._d = d
 
     def _compute(self, data_1, data_2):
-        return - euclidean_dist_matrix(data_1, data_2) ** self._d / 2.
+        D = np.sqrt(euclidean_dist_matrix(data_1, data_2))
+        return - D ** self._d
 
     def dim(self):
         return None
@@ -1246,7 +1228,7 @@ def _apply_floyd_warshall(data):
         floyd = floyd_warshall(graph, graph)
         maximal = max(maximal, (floyd[~np.isinf(floyd)]).max())
         res.append(floyd)
-    return res, maximal
+    return res, int(maximal)
 
 
 class ShortestPath(GraphKernel):
@@ -1263,9 +1245,8 @@ class ShortestPath(GraphKernel):
         Construct accumulation array matrix for one dataset
         containing labaled graph data.
         """
-        res = lil_matrix(
-            np.zeros((len(shortest_paths),
-                      (maxpath + 1) * numlabels * (numlabels + 1) / 2)))
+        ncols = int((maxpath + 1) * numlabels * (numlabels + 1) / 2)
+        res = lil_matrix(np.zeros((len(shortest_paths), ncols)))
         for i, s in enumerate(shortest_paths):
             labels = labels_t[i]
             labels_aux = matlib.repmat(labels, 1, len(labels))
@@ -1277,8 +1258,9 @@ class ShortestPath(GraphKernel):
             ind = s[subsetter] * numlabels * (numlabels + 1) / 2 + \
                 (min_lab - 1) * (2*numlabels + 2 - min_lab) / 2 + \
                 max_lab - min_lab
-            accum = np.zeros((maxpath + 1) * numlabels * (numlabels + 1) / 2)
-            accum[:ind.max() + 1] += np.bincount(ind.astype(int))
+            accum = np.zeros(ncols)
+            idx_max = int(ind.max())
+            accum[:idx_max + 1] += np.bincount(ind.astype(int))
             res[i] = lil_matrix(accum)
         return res
 
@@ -1287,12 +1269,13 @@ class ShortestPath(GraphKernel):
         Construct accumulation array matrix for one dataset
         containing unlabaled graph data.
         """
-        res = lil_matrix(np.zeros((len(shortest_paths), maxpath+1)))
+        res = lil_matrix(np.zeros((len(shortest_paths), maxpath + 1)))
         for i, s in enumerate(shortest_paths):
             subsetter = np.triu(~(np.isinf(s)))
             ind = s[subsetter]
             accum = np.zeros(maxpath + 1)
-            accum[:ind.max() + 1] += np.bincount(ind.astype(int))
+            idx_max = int(ind.max())
+            accum[:idx_max + 1] += np.bincount(ind.astype(int))
             res[i] = lil_matrix(accum)
         return res
 

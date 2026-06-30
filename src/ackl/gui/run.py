@@ -71,7 +71,7 @@ def analyze():
                                         selected_kernel_names = kernel_type)
 
         r += s
-        r += metrics.visualize_metric_dicts(dic, plot=False)
+        r += metrics.visualize_cla_dicts(dic, plot=False)
 
     except Exception as e:
         r += '<b>' + str(e) + '</b>'
