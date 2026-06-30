@@ -781,7 +781,7 @@ class TestVersion:
     def test_version_string(self):
         import ackl
         assert isinstance(ackl.__version__, str)
-        assert ackl.__version__ == '2.2.0'
+        assert ackl.__version__ == '2.2.1'
 
 
 # ── edge case tests ─────────────────────────────────────────

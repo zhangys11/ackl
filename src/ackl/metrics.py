@@ -717,7 +717,7 @@ def time_cost_kernels(X, repeat=10, display=True):
         plt.scatter(x, y.mean(axis=1))
         plt.errorbar(x, y.mean(axis=1), y.std(axis=1) * 1,
                      color="dodgerblue", linewidth=1, elinewidth=10, ecolor='r',
-                     alpha=0.5, label=' $\mu ± 1 \sigma$ (' + str(y.shape[1]) + ' runs)')  # X.std(axis = 0)
+                      alpha=0.5, label=r' $\mu \pm 1 \sigma$ (' + str(y.shape[1]) + ' runs)')  # X.std(axis = 0)
 
         plt.legend()
         # plt.bar(x, y)
